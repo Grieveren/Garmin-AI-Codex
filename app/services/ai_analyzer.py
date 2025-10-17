@@ -8,6 +8,9 @@ from typing import Any
 from anthropic import Anthropic
 
 from app.config import get_settings
+from app.database import SessionLocal
+from app.models.database_models import DailyMetric
+from app.services.data_processor import DataProcessor
 from app.services.garmin_service import GarminService
 
 
@@ -170,6 +173,24 @@ class AIAnalyzer:
             "total_duration_min": round(total_duration, 0),
         }
 
+    def _has_historical_data(self, target_date: date) -> bool:
+        """Check if we have historical data in database."""
+        db = SessionLocal()
+        try:
+            # Check if we have at least 7 days of data before target date
+            start_date = target_date - timedelta(days=7)
+            count = (
+                db.query(DailyMetric)
+                .filter(
+                    DailyMetric.date >= start_date,
+                    DailyMetric.date <= target_date,
+                )
+                .count()
+            )
+            return count >= 5  # Need at least 5 days of data
+        finally:
+            db.close()
+
     def _build_prompt(self, target_date: date, data: dict[str, Any], baselines: dict[str, Any]) -> str:
         """Build comprehensive prompt for Claude AI."""
 
@@ -180,6 +201,18 @@ class AIAnalyzer:
         hr_data = data.get("heart_rate", {})
         stress_data = data.get("stress", {})
         body_battery_data = data.get("body_battery", {})
+
+        # Check for historical baselines
+        has_history = self._has_historical_data(target_date)
+        historical_baselines = None
+
+        if has_history:
+            db = SessionLocal()
+            try:
+                processor = DataProcessor(db)
+                historical_baselines = processor.get_all_baselines(target_date)
+            finally:
+                db.close()
 
         # Format sleep info
         sleep_info = "No sleep data available"
@@ -233,11 +266,76 @@ class AIAnalyzer:
         activity_summary += f"{baselines['total_distance_km']}km total, "
         activity_summary += f"{baselines['total_duration_min']:.0f} min total"
 
-        prompt = f"""You are an expert running coach and sports scientist analyzing an athlete's readiness to train.
+        # Build historical context section
+        historical_context = ""
+        if historical_baselines:
+            hrv_baseline = historical_baselines["hrv"]
+            rhr_baseline = historical_baselines["resting_hr"]
+            sleep_baseline = historical_baselines["sleep"]
+            acwr = historical_baselines["acwr"]
+            trends = historical_baselines["training_trends"]
+
+            historical_context = f"""
+
+HISTORICAL BASELINES (30-day analysis):
+- HRV Analysis:
+  * Current: {hrv_baseline.get('current_hrv', 'N/A')}ms
+  * 30-day baseline: {hrv_baseline.get('baseline_hrv', 'N/A')}ms
+  * 7-day average: {hrv_baseline.get('7_day_avg', 'N/A')}ms
+  * Deviation: {hrv_baseline.get('deviation_pct', 'N/A')}%
+  * Trend: {hrv_baseline.get('trend', 'unknown')}
+  * ⚠️ Concerning: {'YES - HRV significantly below baseline' if hrv_baseline.get('is_concerning') else 'No'}
+
+- Resting Heart Rate:
+  * Current: {rhr_baseline.get('current_rhr', 'N/A')} bpm
+  * Baseline: {rhr_baseline.get('baseline_rhr', 'N/A')} bpm
+  * Deviation: {rhr_baseline.get('deviation_bpm', 'N/A')} bpm
+  * ⚠️ Elevated: {'YES - possible illness or fatigue' if rhr_baseline.get('is_elevated') else 'No'}
+
+- Sleep Pattern:
+  * Current: {sleep_baseline.get('current_hours', 'N/A')} hours
+  * Baseline: {sleep_baseline.get('baseline_hours', 'N/A')} hours
+  * 7-day average: {sleep_baseline.get('7_day_avg', 'N/A')} hours
+  * Weekly sleep debt: {sleep_baseline.get('sleep_debt_hours', 'N/A')} hours
+  * ⚠️ Sleep deprived: {'YES - insufficient sleep' if sleep_baseline.get('is_sleep_deprived') else 'No'}
+
+- Training Load (ACWR - Injury Prevention):
+  * Acute load (7 days): {acwr.get('acute_load', 'N/A')}
+  * Chronic load (28 days): {acwr.get('chronic_load', 'N/A')}
+  * ACWR Ratio: {acwr.get('acwr', 'N/A')}
+  * Status: {acwr.get('status', 'unknown')}
+  * Injury risk: {acwr.get('injury_risk', 'unknown').upper()}
+  * ⚠️ WARNING: {'ACWR >1.5 indicates HIGH INJURY RISK' if acwr.get('acwr', 0) > 1.5 else 'ACWR in safe zone' if acwr.get('acwr') else 'Insufficient data'}
+
+- Training Trends (30 days):
+  * Total activities: {trends.get('total_activities', 0)}
+  * Total distance: {trends.get('total_distance_km', 0)}km
+  * Average weekly distance: {trends.get('avg_weekly_distance', 0)}km/week
+  * Consecutive training days: {trends.get('consecutive_training_days', 0)} days
+  * ⚠️ No rest days: {'YES - overtraining risk!' if trends.get('consecutive_training_days', 0) >= 7 else 'No'}
+
+IMPORTANT CONTEXT FROM HISTORICAL DATA:
+* You now have 30 days of baseline data to compare against
+* This allows you to detect deviations from the athlete's NORMAL ranges
+* HRV drop >10% from baseline is a major red flag for overtraining/illness
+* Resting HR elevation >5bpm suggests incomplete recovery
+* ACWR >1.3 indicates increasing injury risk; >1.5 is dangerous
+* 7+ consecutive training days without rest increases overtraining risk
+"""
+
+        prompt = f"""You are an expert running coach and sports scientist analyzing an athlete's readiness to train."""
+
+        if historical_baselines:
+            prompt += """
+
+**IMPORTANT: You have access to 30 days of historical baseline data. Use this to provide highly personalized recommendations based on the athlete's ACTUAL normal ranges, not population averages.**
+"""
+
+        prompt += f"""
 
 TODAY'S DATE: {target_date.isoformat()}
 
-ATHLETE'S PHYSIOLOGICAL DATA:
+ATHLETE'S PHYSIOLOGICAL DATA (Today):
 - Sleep: {sleep_info}
 - HRV (Heart Rate Variability): {hrv_info}
 - Heart Rate: {hr_info}
@@ -245,7 +343,7 @@ ATHLETE'S PHYSIOLOGICAL DATA:
 - Body Battery: {bb_info}
 - Daily Steps: {stats.get('totalSteps', 'N/A')}
 - Active Calories: {stats.get('activeKilocalories', 'N/A')}
-
+{historical_context}
 RECENT TRAINING HISTORY (Last 7 days):
 {activity_summary}
 
@@ -259,11 +357,16 @@ Analyze the athlete's readiness to train TODAY and provide:
 6. Recovery tips (2-3 practical suggestions)
 
 IMPORTANT GUIDELINES:
-- HRV drop >10% from baseline = possible illness/overtraining → recommend easy or rest
-- Sleep <6 hours or poor quality → recommend easy day
+- **Use historical baselines when available** - Compare today's metrics to the athlete's 30-day baseline, not population averages
+- HRV drop >10% from PERSONAL baseline = possible illness/overtraining → recommend easy or rest
+- Resting HR >5bpm above PERSONAL baseline = incomplete recovery
+- Sleep <6 hours or below personal average → recommend easy day
 - High stress or low body battery → scale back intensity
+- **ACWR >1.3 = approaching injury risk; >1.5 = HIGH RISK** - recommend reduced volume/intensity
+- 7+ consecutive training days without rest = overtraining risk - MANDATE rest day
 - Trust the data but acknowledge the athlete should listen to their body
 - Be specific with workout details (duration, intensity, HR zones if available)
+- Prioritize LONG-TERM health and injury prevention over short-term gains
 
 Return your response as a JSON object with this EXACT structure:
 {{

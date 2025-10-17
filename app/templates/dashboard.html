@@ -44,7 +44,7 @@
             font-size: 0.9rem;
         }
 
-        .refresh-btn {
+        .refresh-btn, .sync-btn {
             background: #667eea;
             color: white;
             border: none;
@@ -56,13 +56,40 @@
             transition: background 0.3s;
         }
 
+        .sync-btn {
+            background: #48bb78;
+        }
+
+        .sync-btn:hover {
+            background: #38a169;
+        }
+
         .refresh-btn:hover {
             background: #5a67d8;
         }
 
-        .refresh-btn:disabled {
+        .refresh-btn:disabled, .sync-btn:disabled {
             background: #cbd5e0;
             cursor: not-allowed;
+        }
+
+        .sync-status {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .sync-status.success {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+        }
+
+        .sync-status.error {
+            background: #fff5f5;
+            border-left: 4px solid #f56565;
         }
 
         .readiness-card {
@@ -254,9 +281,14 @@
                 <h1>🏃 AI Training Optimizer</h1>
                 <div class="date" id="current-date"></div>
             </div>
-            <button class="refresh-btn" onclick="loadRecommendation()">
-                🔄 Refresh
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button class="sync-btn" onclick="syncData()">
+                    ⬇️ Sync Data
+                </button>
+                <button class="refresh-btn" onclick="loadRecommendation()">
+                    🔄 Refresh
+                </button>
+            </div>
         </div>
 
         <div id="loading" class="loading">
@@ -466,6 +498,49 @@
 
             // AI reasoning
             document.getElementById('ai-reasoning').textContent = data.ai_reasoning;
+        }
+
+        async function syncData() {
+            const syncBtn = document.querySelector('.sync-btn');
+            const originalText = syncBtn.textContent;
+
+            // Disable button and show loading
+            syncBtn.disabled = true;
+            syncBtn.textContent = '⏳ Syncing...';
+
+            try {
+                const response = await fetch('/manual/sync/now', {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                // Show success message with detailed sync info
+                const message = `✅ Sync successful!\n\n` +
+                    `📅 Today (${result.dates_synced.today}):\n` +
+                    `   ${result.today_action === 'created' ? 'New data' : 'Updated'} - includes last night's sleep & HRV\n\n` +
+                    `📅 Yesterday (${result.dates_synced.yesterday}):\n` +
+                    `   ${result.yesterday_action === 'created' ? 'New data' : 'Updated'} - complete metrics\n\n` +
+                    `🏃 Activities: ${result.activities_synced}\n\n` +
+                    `${result.message}`;
+
+                alert(message);
+
+                // Refresh recommendations to include new data
+                loadRecommendation();
+
+            } catch (error) {
+                console.error('Sync error:', error);
+                alert(`❌ Sync failed: ${error.message}`);
+            } finally {
+                // Re-enable button
+                syncBtn.disabled = false;
+                syncBtn.textContent = originalText;
+            }
         }
     </script>
 </body>
