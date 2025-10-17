@@ -37,6 +37,16 @@ class DailyMetric(Base):
     body_battery_drained: Mapped[int | None] = mapped_column(Integer, nullable=True)
     body_battery_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Training Readiness & Performance (Garmin's AI metrics)
+    training_readiness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0-100
+    vo2_max: Mapped[float | None] = mapped_column(Float, nullable=True)  # ml/kg/min
+    training_status: Mapped[str | None] = mapped_column(String(50), nullable=True)  # productive, maintaining, peaking, etc.
+
+    # Advanced Health Metrics
+    spo2_avg: Mapped[float | None] = mapped_column(Float, nullable=True)  # Blood oxygen % average
+    spo2_min: Mapped[float | None] = mapped_column(Float, nullable=True)  # Blood oxygen % minimum
+    respiration_avg: Mapped[float | None] = mapped_column(Float, nullable=True)  # Breaths per minute
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

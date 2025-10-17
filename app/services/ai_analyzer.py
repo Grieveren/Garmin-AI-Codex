@@ -105,6 +105,27 @@ class AIAnalyzer:
         except Exception as e:
             body_battery = {"error": str(e)}
 
+        # Fetch enhanced metrics (Phase 1)
+        try:
+            training_readiness = garmin._client.get_training_readiness(date_str)
+        except Exception:
+            training_readiness = {}
+
+        try:
+            training_status = garmin._client.get_training_status(date_str)
+        except Exception:
+            training_status = {}
+
+        try:
+            spo2 = garmin._client.get_spo2_data(date_str)
+        except Exception:
+            spo2 = {}
+
+        try:
+            respiration = garmin._client.get_respiration_data(date_str)
+        except Exception:
+            respiration = {}
+
         # Fetch last 7 days of activities
         activities = []
         try:
@@ -128,6 +149,10 @@ class AIAnalyzer:
             "heart_rate": hr,
             "stress": stress,
             "body_battery": body_battery,
+            "training_readiness": training_readiness,
+            "training_status": training_status,
+            "spo2": spo2,
+            "respiration": respiration,
             "recent_activities": activities[:7],  # Last 7 days
         }
 
@@ -261,6 +286,49 @@ class AIAnalyzer:
                 drained = latest_bb.get("drained", 0)
                 bb_info = f"Charged: +{charged}, Drained: -{drained}"
 
+        # Format enhanced metrics (Phase 1)
+        training_readiness_data = data.get("training_readiness", {})
+        training_status_data = data.get("training_status", {})
+        spo2_data = data.get("spo2", {})
+        respiration_data = data.get("respiration", {})
+
+        garmin_readiness_info = "Not available"
+        if training_readiness_data and isinstance(training_readiness_data, dict):
+            readiness_score = training_readiness_data.get("readinessScore")
+            if readiness_score is not None:
+                garmin_readiness_info = f"{readiness_score}/100"
+
+        vo2_max_info = "Not available"
+        training_status_info = "Not available"
+        if training_status_data and isinstance(training_status_data, dict):
+            vo2_max = training_status_data.get("vo2Max")
+            if vo2_max:
+                vo2_max_info = f"{vo2_max} ml/kg/min"
+            training_status_key = training_status_data.get("trainingStatusKey")
+            if training_status_key:
+                training_status_info = training_status_key
+
+        spo2_info = "Not available"
+        if spo2_data and isinstance(spo2_data, dict):
+            if "sleepSpo2" in spo2_data and isinstance(spo2_data["sleepSpo2"], dict):
+                avg_spo2 = spo2_data["sleepSpo2"].get("avgSpo2")
+                min_spo2 = spo2_data["sleepSpo2"].get("lowestSpo2")
+                if avg_spo2:
+                    spo2_info = f"Average: {avg_spo2}%"
+                    if min_spo2:
+                        spo2_info += f", Minimum: {min_spo2}%"
+
+        respiration_info = "Not available"
+        if respiration_data and isinstance(respiration_data, dict):
+            if "sleepRespiration" in respiration_data and isinstance(respiration_data["sleepRespiration"], dict):
+                avg_resp = respiration_data["sleepRespiration"].get("avgRespirationRate")
+                if avg_resp:
+                    respiration_info = f"{avg_resp} breaths/min"
+            elif "avgRespirationRate" in respiration_data:
+                avg_resp = respiration_data.get("avgRespirationRate")
+                if avg_resp:
+                    respiration_info = f"{avg_resp} breaths/min"
+
         # Format activity summary
         activity_summary = f"{baselines['activity_count']} activities in last 7 days, "
         activity_summary += f"{baselines['total_distance_km']}km total, "
@@ -343,6 +411,13 @@ ATHLETE'S PHYSIOLOGICAL DATA (Today):
 - Body Battery: {bb_info}
 - Daily Steps: {stats.get('totalSteps', 'N/A')}
 - Active Calories: {stats.get('activeKilocalories', 'N/A')}
+
+ENHANCED RECOVERY METRICS:
+- Garmin Training Readiness Score: {garmin_readiness_info} (Garmin's AI-powered readiness assessment)
+- VO2 Max Estimate: {vo2_max_info}
+- Training Status: {training_status_info} (productive/maintaining/peaking/overreaching)
+- Blood Oxygen (SPO2): {spo2_info} (sleep average)
+- Respiration Rate: {respiration_info} (elevated = stress/illness/overtraining)
 {historical_context}
 RECENT TRAINING HISTORY (Last 7 days):
 {activity_summary}
@@ -364,6 +439,10 @@ IMPORTANT GUIDELINES:
 - High stress or low body battery → scale back intensity
 - **ACWR >1.3 = approaching injury risk; >1.5 = HIGH RISK** - recommend reduced volume/intensity
 - 7+ consecutive training days without rest = overtraining risk - MANDATE rest day
+- **Garmin Training Readiness <60** = consider easy day or rest
+- **SPO2 <95% average** during sleep may indicate poor recovery or altitude effects
+- **Respiration rate elevated** (compare to athlete's baseline if available) = stress/illness/overtraining indicator
+- **Training Status "overreaching"** = reduce volume immediately
 - Trust the data but acknowledge the athlete should listen to their body
 - Be specific with workout details (duration, intensity, HR zones if available)
 - Prioritize LONG-TERM health and injury prevention over short-term gains

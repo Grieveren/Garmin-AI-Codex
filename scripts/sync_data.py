@@ -71,6 +71,27 @@ def fetch_daily_metrics(garmin: GarminService, target_date: date, verbose: bool 
         stress = garmin._client.get_stress_data(date_str)
         body_battery = garmin._client.get_body_battery(date_str)
 
+        # Fetch enhanced metrics (Phase 1)
+        try:
+            training_readiness = garmin._client.get_training_readiness(date_str)
+        except Exception:
+            training_readiness = None
+
+        try:
+            training_status = garmin._client.get_training_status(date_str)
+        except Exception:
+            training_status = None
+
+        try:
+            spo2 = garmin._client.get_spo2_data(date_str)
+        except Exception:
+            spo2 = None
+
+        try:
+            respiration = garmin._client.get_respiration_data(date_str)
+        except Exception:
+            respiration = None
+
         # Extract metrics
         metrics = {
             "date": target_date,
@@ -113,6 +134,36 @@ def fetch_daily_metrics(garmin: GarminService, target_date: date, verbose: bool 
             max_vals = [bb.get("charged", 0) for bb in body_battery if "charged" in bb]
             if max_vals:
                 metrics["body_battery_max"] = max(max_vals)
+
+        # Training Readiness Score (Garmin's AI readiness 0-100)
+        if training_readiness and isinstance(training_readiness, dict):
+            metrics["training_readiness_score"] = training_readiness.get("readinessScore")
+
+        # Training Status (VO2 max, training status)
+        if training_status and isinstance(training_status, dict):
+            metrics["vo2_max"] = training_status.get("vo2Max")
+            metrics["training_status"] = training_status.get("trainingStatusKey")
+
+        # SPO2 (Blood Oxygen)
+        if spo2 and isinstance(spo2, dict):
+            # Try to get sleep SPO2 average first, fallback to overall
+            if "sleepSpo2" in spo2 and isinstance(spo2["sleepSpo2"], dict):
+                metrics["spo2_avg"] = spo2["sleepSpo2"].get("avgSpo2")
+                metrics["spo2_min"] = spo2["sleepSpo2"].get("lowestSpo2")
+            elif "values" in spo2 and isinstance(spo2["values"], list):
+                # Calculate from values array if available
+                values = [v.get("value") for v in spo2["values"] if isinstance(v, dict) and v.get("value")]
+                if values:
+                    metrics["spo2_avg"] = sum(values) / len(values)
+                    metrics["spo2_min"] = min(values)
+
+        # Respiration Rate
+        if respiration and isinstance(respiration, dict):
+            # Try sleep respiration first
+            if "sleepRespiration" in respiration and isinstance(respiration["sleepRespiration"], dict):
+                metrics["respiration_avg"] = respiration["sleepRespiration"].get("avgRespirationRate")
+            elif "avgRespirationRate" in respiration:
+                metrics["respiration_avg"] = respiration.get("avgRespirationRate")
 
         return metrics
 
