@@ -67,6 +67,34 @@ class AIAnalyzer:
         # Parse response
         result = self._parse_response(response.content[0].text)
 
+        # Add Phase 1 enhanced metrics to response
+        training_readiness_data = data.get("training_readiness", {})
+        training_status_data = data.get("training_status", {})
+        spo2_data = data.get("spo2", {})
+        respiration_data = data.get("respiration", {})
+
+        result["enhanced_metrics"] = {
+            "training_readiness_score": training_readiness_data.get("readinessScore") if isinstance(training_readiness_data, dict) else None,
+            "vo2_max": training_status_data.get("vo2Max") if isinstance(training_status_data, dict) else None,
+            "training_status": training_status_data.get("trainingStatusKey") if isinstance(training_status_data, dict) else None,
+            "spo2_avg": None,
+            "spo2_min": None,
+            "respiration_avg": None,
+        }
+
+        # Extract SPO2
+        if spo2_data and isinstance(spo2_data, dict):
+            if "sleepSpo2" in spo2_data and isinstance(spo2_data["sleepSpo2"], dict):
+                result["enhanced_metrics"]["spo2_avg"] = spo2_data["sleepSpo2"].get("avgSpo2")
+                result["enhanced_metrics"]["spo2_min"] = spo2_data["sleepSpo2"].get("lowestSpo2")
+
+        # Extract respiration
+        if respiration_data and isinstance(respiration_data, dict):
+            if "sleepRespiration" in respiration_data and isinstance(respiration_data["sleepRespiration"], dict):
+                result["enhanced_metrics"]["respiration_avg"] = respiration_data["sleepRespiration"].get("avgRespirationRate")
+            elif "avgRespirationRate" in respiration_data:
+                result["enhanced_metrics"]["respiration_avg"] = respiration_data.get("avgRespirationRate")
+
         return result
 
     def _fetch_garmin_data(self, garmin: GarminService, target_date: date) -> dict[str, Any]:

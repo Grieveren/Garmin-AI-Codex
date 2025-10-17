@@ -305,6 +305,33 @@
                 <div class="recommendation-badge" id="recommendation-badge">--</div>
             </div>
 
+            <!-- Enhanced Metrics (Phase 1) -->
+            <div class="workout-card" id="enhanced-metrics-card" style="display: none;">
+                <h2>🔬 Enhanced Recovery Metrics</h2>
+                <div class="workout-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Garmin Readiness</div>
+                        <div class="meta-value" id="garmin-readiness">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">VO2 Max</div>
+                        <div class="meta-value" id="vo2-max">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Training Status</div>
+                        <div class="meta-value" id="training-status">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Blood Oxygen (SPO2)</div>
+                        <div class="meta-value" id="spo2">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Respiration Rate</div>
+                        <div class="meta-value" id="respiration">--</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Suggested Workout -->
             <div class="workout-card">
                 <h2>💪 Suggested Workout</h2>
@@ -498,6 +525,61 @@
 
             // AI reasoning
             document.getElementById('ai-reasoning').textContent = data.ai_reasoning;
+
+            // Enhanced metrics (Phase 1) - safe DOM manipulation
+            if (data.enhanced_metrics) {
+                const metrics = data.enhanced_metrics;
+                const card = document.getElementById('enhanced-metrics-card');
+                let hasAnyMetric = false;
+
+                // Garmin Readiness
+                if (metrics.training_readiness_score !== null && metrics.training_readiness_score !== undefined) {
+                    document.getElementById('garmin-readiness').textContent = `${metrics.training_readiness_score}/100`;
+                    hasAnyMetric = true;
+                } else {
+                    document.getElementById('garmin-readiness').textContent = 'Not available';
+                }
+
+                // VO2 Max
+                if (metrics.vo2_max) {
+                    document.getElementById('vo2-max').textContent = `${metrics.vo2_max} ml/kg/min`;
+                    hasAnyMetric = true;
+                } else {
+                    document.getElementById('vo2-max').textContent = 'Not available';
+                }
+
+                // Training Status
+                if (metrics.training_status) {
+                    const status = metrics.training_status.replace(/_/g, ' ').toUpperCase();
+                    document.getElementById('training-status').textContent = status;
+                    hasAnyMetric = true;
+                } else {
+                    document.getElementById('training-status').textContent = 'Not available';
+                }
+
+                // SPO2
+                if (metrics.spo2_avg) {
+                    let spo2Text = `${metrics.spo2_avg.toFixed(1)}%`;
+                    if (metrics.spo2_min) {
+                        spo2Text += ` (min: ${metrics.spo2_min.toFixed(1)}%)`;
+                    }
+                    document.getElementById('spo2').textContent = spo2Text;
+                    hasAnyMetric = true;
+                } else {
+                    document.getElementById('spo2').textContent = 'Not available';
+                }
+
+                // Respiration Rate
+                if (metrics.respiration_avg) {
+                    document.getElementById('respiration').textContent = `${metrics.respiration_avg.toFixed(1)} breaths/min`;
+                    hasAnyMetric = true;
+                } else {
+                    document.getElementById('respiration').textContent = 'Not available';
+                }
+
+                // Show card only if at least one metric is available
+                card.style.display = hasAnyMetric ? 'block' : 'none';
+            }
         }
 
         async function syncData() {
