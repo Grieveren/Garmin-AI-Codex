@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Manual Garmin Sync</h1>
+<p>
+  Step 1: Request a verification code (only once per attempt). Step 2: Paste the latest six-digit code and run the sync.
+</p>
+
+<form method="post" action="/manual/mfa/request">
+  <button type="submit" style="background:#666; color:white; padding:10px 20px; border:none; cursor:pointer;">Request Verification Code</button>
+</form>
+
+<hr style="margin:2rem 0;">
+
+<form method="post" action="/manual/mfa" style="margin-top:1rem;">
+  <label for="code" style="display:block; margin-bottom:0.5rem; font-weight:bold;">Six-digit MFA code</label>
+  <input id="code" name="code" type="text" minlength="6" maxlength="6" pattern="[0-9]{6}" required style="padding:8px; font-size:16px; width:150px; margin-bottom:1rem;" />
+  <br>
+  <button type="submit" style="background:#0a0; color:white; padding:10px 20px; border:none; cursor:pointer; font-weight:bold;">RUN SYNC</button>
+</form>
+
+{% if message is not none %}
+  <div style="margin-top:1rem; padding:0.75rem; border:1px solid {% if success %}#0a0{% else %}#a00{% endif %};">
+    <strong>{{ "Success" if success else "Error" }}:</strong>
+    <span>{{ message }}</span>
+  </div>
+{% endif %}
+
+{% if summary_json %}
+  <h2>Daily Summary</h2>
+  <pre style="background:#f4f4f4; padding:1rem; overflow:auto;">{{ summary_json }}</pre>
+{% endif %}
+
+<p style="margin-top:1.5rem; font-size:0.9rem; color:#555;">
+  Garmin may rate-limit repeated attempts. If you see "Too Many Requests", wait 20–30 minutes before trying again.
+</p>
+{% endblock %}
