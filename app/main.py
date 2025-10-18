@@ -3,9 +3,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from app.logging_config import configure_logging
 from app.routers import health, manual_sync, recommendations
 
 
+configure_logging()
 app = FastAPI(title="Training Optimizer API")
 templates = Jinja2Templates(directory="app/templates")
 

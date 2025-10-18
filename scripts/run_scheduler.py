@@ -12,6 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from filelock import FileLock
 
 from app.config import Settings, get_settings
+from app.logging_config import configure_logging
 from app.database import Base, SessionLocal, engine
 from app.services.ai_analyzer import AIAnalyzer
 from app.services.garmin_service import GarminService
@@ -22,23 +23,7 @@ from scripts.sync_data import (
 )
 
 
-LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-_file_handler_configured = False
-
 logger = logging.getLogger("scheduler")
-
-
-def configure_logging(settings: Settings) -> None:
-    global _file_handler_configured
-    if _file_handler_configured:
-        return
-
-    settings.log_dir.mkdir(parents=True, exist_ok=True)
-    file_handler = logging.FileHandler(settings.log_dir / "scheduler.log")
-    file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-    logging.getLogger().addHandler(file_handler)
-    _file_handler_configured = True
 
 
 def acquire_lock(lock_path: Path) -> FileLock:
@@ -148,8 +133,14 @@ async def run_once() -> None:
 
 
 async def main(run_now: bool) -> None:
+    configure_logging()
     settings = get_settings()
-    configure_logging(settings)
+
+    scheduler_log = settings.log_dir / "scheduler.log"
+    if not any(isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", "") == str(scheduler_log) for h in logger.handlers):
+        handler = logging.FileHandler(scheduler_log, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+        logger.addHandler(handler)
 
     lock_path = settings.scheduler_lock_file
     lock = acquire_lock(lock_path)

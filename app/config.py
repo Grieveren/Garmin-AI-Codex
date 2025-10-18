@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         description="Path to cached Garmin tokens (or null to disable cache).",
     )
 
+    log_level: str = Field(default="INFO")
     log_dir: Path = Field(default=Path("logs"))
     scheduler_hour: int = Field(default=8, ge=0, le=23)
     scheduler_minute: int = Field(default=0, ge=0, le=59)
@@ -51,6 +52,15 @@ class Settings(BaseSettings):
                 "SECRET_KEY is required. Update your .env file with a strong secret before running the app."
             )
         return value
+
+    @field_validator("log_level")
+    @classmethod
+    def normalize_log_level(cls, value: str) -> str:
+        valid = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+        upper = value.upper()
+        if upper not in valid:
+            raise ValueError(f"LOG_LEVEL must be one of {', '.join(sorted(valid))}")
+        return upper
 
 
 @lru_cache()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -11,9 +12,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import SessionLocal, engine, Base
+from app.logging_config import configure_logging
 from app.models.database_models import DailyMetric, Activity
 from app.services.garmin_service import GarminService
+
+
+logger = logging.getLogger("scripts.sync_data")
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,7 +66,7 @@ def fetch_daily_metrics(garmin: GarminService, target_date: date, verbose: bool 
     date_str = target_date.isoformat()
 
     if verbose:
-        print(f"  Fetching data for {date_str}...")
+        logger.info("Fetching data for %s", date_str)
 
     try:
         # Fetch all relevant data
@@ -181,7 +187,7 @@ def fetch_daily_metrics(garmin: GarminService, target_date: date, verbose: bool 
         return metrics
 
     except Exception as e:
-        print(f"  ⚠️  Error fetching data: {e}")
+        logger.warning("Error fetching data for %s: %s", date_str, e)
         return None
 
 
@@ -191,7 +197,7 @@ def save_daily_metric(db: Session, metrics: dict, force: bool = False, verbose: 
 
     if existing and not force:
         if verbose:
-            print(f"  Data already exists for {metrics['date']}, skipping...")
+            logger.info("Data already exists for %s, skipping", metrics["date"])
         return False
 
     if existing:
@@ -201,13 +207,13 @@ def save_daily_metric(db: Session, metrics: dict, force: bool = False, verbose: 
                 setattr(existing, key, value)
         existing.updated_at = datetime.utcnow()
         if verbose:
-            print(f"  Updated existing record")
+            logger.info("Updated existing daily metrics record for %s", metrics["date"])
     else:
         # Create new
         metric = DailyMetric(**metrics)
         db.add(metric)
         if verbose:
-            print(f"  Created new record")
+            logger.info("Created new daily metrics record for %s", metrics["date"])
 
     db.commit()
     return True
@@ -270,49 +276,57 @@ def fetch_and_save_activities(garmin: GarminService, target_date: date, db: Sess
 
             saved_count += 1
             if verbose:
-                print(f"  Saved activity: {activity_data['activity_name']}")
+                logger.info(
+                    "Saved activity '%s' on %s",
+                    activity_data["activity_name"],
+                    activity_date,
+                )
 
         db.commit()
         return saved_count, skipped_count
 
     except Exception as e:
-        print(f"  ⚠️  Error fetching activities: {e}")
+        logger.warning("Error fetching activities for %s: %s", target_date, e)
         return 0, 0
 
 
 def main() -> None:
     args = parse_args()
 
+    configure_logging()
+    # Validate configuration early to surface missing credentials before work begins.
+    get_settings()
+
     # Determine target date
     if args.date:
         try:
             target_date = date.fromisoformat(args.date)
         except ValueError:
-            print(f"❌ Invalid date format: {args.date}. Use YYYY-MM-DD")
+            logger.error("❌ Invalid date format: %s. Use YYYY-MM-DD", args.date)
             sys.exit(1)
     else:
         # Default to yesterday for daily cron
         target_date = date.today() - timedelta(days=1)
 
-    print(f"🔄 Syncing Garmin data for {target_date}")
-    print(f"{'='*50}")
+    logger.info("🔄 Syncing Garmin data for %s", target_date)
+    logger.info("%s", "=" * 50)
 
     # Ensure database tables exist
     Base.metadata.create_all(bind=engine)
 
     # Initialize Garmin service
     if args.verbose:
-        print("\n🔐 Connecting to Garmin Connect...")
+        logger.info("🔐 Connecting to Garmin Connect...")
 
     garmin = GarminService()
 
     try:
         garmin.login(mfa_code=args.mfa_code)
         if args.verbose:
-            print("✅ Logged in successfully")
+            logger.info("✅ Logged in successfully")
     except Exception as e:
-        print(f"❌ Login failed: {e}")
-        print("\nNote: If token expired, provide MFA code: --mfa-code 123456")
+        logger.error("❌ Login failed: %s", e)
+        logger.error("Note: If token expired, provide MFA code: --mfa-code 123456")
         sys.exit(1)
 
     db = SessionLocal()
@@ -320,36 +334,36 @@ def main() -> None:
     try:
         # Fetch and save daily metrics
         if args.verbose:
-            print(f"\n📊 Fetching daily metrics...")
+            logger.info("📊 Fetching daily metrics...")
 
         metrics = fetch_daily_metrics(garmin, target_date, args.verbose)
 
         if metrics:
             saved = save_daily_metric(db, metrics, force=args.force, verbose=args.verbose)
             if saved:
-                print(f"✅ Daily metrics saved")
+                logger.info("✅ Daily metrics saved")
             else:
-                print(f"⏭️  Daily metrics already exist (use --force to overwrite)")
+                logger.info("⏭️  Daily metrics already exist (use --force to overwrite)")
         else:
-            print(f"⚠️  No daily metrics available")
+            logger.warning("⚠️  No daily metrics available")
 
         # Fetch and save activities
         if args.verbose:
-            print(f"\n🏃 Fetching activities...")
+            logger.info("🏃 Fetching activities...")
 
         saved_count, skipped_count = fetch_and_save_activities(
             garmin, target_date, db, force=args.force, verbose=args.verbose
         )
 
         if saved_count > 0:
-            print(f"✅ Saved {saved_count} activity(ies)")
+            logger.info("✅ Saved %d activity(ies)", saved_count)
         if skipped_count > 0:
-            print(f"⏭️  Skipped {skipped_count} existing activity(ies)")
+            logger.info("⏭️  Skipped %d existing activity(ies)", skipped_count)
         if saved_count == 0 and skipped_count == 0:
-            print(f"ℹ️  No activities found for {target_date}")
+            logger.info("ℹ️  No activities found for %s", target_date)
 
-        print(f"\n{'='*50}")
-        print(f"✅ Sync complete for {target_date}")
+        logger.info("%s", "=" * 50)
+        logger.info("✅ Sync complete for %s", target_date)
 
     finally:
         db.close()

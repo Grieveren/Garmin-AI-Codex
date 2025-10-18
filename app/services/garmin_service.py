@@ -1,4 +1,5 @@
 """Service for interacting with the Garmin Connect API."""
+import logging
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,9 @@ from garth.exc import GarthHTTPError
 from garth.users import UserProfile, UserSettings
 
 from app.config import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class GarminService:
@@ -33,12 +37,15 @@ class GarminService:
 
         self._pending_mfa_code = mfa_code
         try:
+            logger.info("Attempting Garmin login (token cache: %s)", bool(self._token_store))
             if self._token_store and self._token_store.exists():
                 self._client.login(tokenstore=str(self._token_store))
             else:
                 self._client.login()
                 self._persist_tokens()
+            logger.info("Garmin login successful")
         except GarthHTTPError as err:
+            logger.exception("Garmin login failed with HTTP error")
             raise RuntimeError(
                 f"Garmin login failed with HTTP {getattr(err, 'response', None).status_code if getattr(err, 'response', None) else 'error'} – {err}"
             ) from err
@@ -46,6 +53,7 @@ class GarminService:
             # Distinguish between invalid MFA (no tokens) and profile fetch issue.
             oauth1 = getattr(self._client.garth, "oauth1_token", None)
             if oauth1 is None:
+                logger.exception("Garmin login failed (likely invalid MFA code)")
                 raise RuntimeError(
                     "Garmin login failed (check MFA code)."
                 ) from err
@@ -66,6 +74,7 @@ class GarminService:
                     self._client.unit_system = user_data.get("measurementSystem", "metric")
             except Exception:
                 # Profile fetch failed, but we have tokens - proceed anyway
+                logger.warning("Garmin profile fetch failed; continuing with cached tokens", exc_info=True)
                 self._client.display_name = "User"
                 self._client.full_name = "Garmin User"
                 self._client.unit_system = "metric"

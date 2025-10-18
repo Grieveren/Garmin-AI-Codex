@@ -18,7 +18,7 @@ Each item is scoped to be tackled in its own branch/PR for ease of review.
    - Document environment overrides and default ports/hosts.
    - Remove hard-coded fallbacks that mask missing configuration.
 
-3. **Logging & Observability** — centralize structured logs for Garmin and AI calls.
+3. **Logging & Observability** _(✅ completed)_ — centralize structured logs for Garmin and AI calls.
    - Introduce a shared logger (JSON-friendly) and consistent log levels.
    - Capture request/response summaries (without secrets) for sync jobs and API calls.
    - Define an error-handling pattern so failures surface in one place.

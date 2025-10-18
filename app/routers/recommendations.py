@@ -1,11 +1,15 @@
 """API endpoints for AI-powered training recommendations."""
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from fastapi import APIRouter, HTTPException
 
 from app.services.ai_analyzer import AIAnalyzer
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
@@ -26,10 +30,12 @@ async def get_today_recommendation():
     """
 
     try:
+        logger.info("Handling readiness request for today")
         analyzer = AIAnalyzer()
         recommendation = await analyzer.analyze_daily_readiness(date.today())
         return recommendation
     except Exception as e:
+        logger.exception("Failed to generate today's recommendation")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate recommendation: {str(e)}"
@@ -50,15 +56,18 @@ async def get_recommendation_for_date(date_str: str):
 
     try:
         target_date = date.fromisoformat(date_str)
+        logger.info("Handling readiness request for %s", target_date.isoformat())
         analyzer = AIAnalyzer()
         recommendation = await analyzer.analyze_daily_readiness(target_date)
         return recommendation
     except ValueError:
+        logger.warning("Invalid readiness request date: %s", date_str)
         raise HTTPException(
             status_code=400,
             detail="Invalid date format. Use YYYY-MM-DD"
         )
     except Exception as e:
+        logger.exception("Failed to generate recommendation for %s", date_str)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate recommendation: {str(e)}"

@@ -37,7 +37,7 @@ cp .env.example .env
 # - ANTHROPIC_API_KEY
 # - User profile (age, gender, max HR, training goals)
 # - SECRET_KEY (generate a strong value, do not leave blank)
-# - Optional: LOG_DIR, SCHEDULER_HOUR, SCHEDULER_MINUTE
+# - Optional: LOG_LEVEL, LOG_DIR, SCHEDULER_HOUR, SCHEDULER_MINUTE
 ```
 
 ### 3. Initialize Database
@@ -110,6 +110,7 @@ PYTHONPATH=. pytest -k readiness
 - **Daily Sync Setup**: `DAILY_SYNC_SETUP.md`
 - **Historical Backfill**: `HISTORICAL_DATA_SETUP.md`
 - **Architecture Backlog**: `docs/architecture_backlog.md`
+- **Logging Configuration**: Set `LOG_LEVEL`/`LOG_DIR` in `.env`; runtime logs write to `logs/app.log` and component-specific files.
 
 ## Tech Stack
 

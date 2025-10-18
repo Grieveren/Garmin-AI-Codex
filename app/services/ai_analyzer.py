@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -12,6 +13,9 @@ from app.database import SessionLocal
 from app.models.database_models import DailyMetric
 from app.services.data_processor import DataProcessor
 from app.services.garmin_service import GarminService
+
+
+logger = logging.getLogger(__name__)
 
 
 class AIAnalyzer:
@@ -40,8 +44,10 @@ class AIAnalyzer:
         """
 
         # Fetch live Garmin data
+        logger.info("Starting readiness analysis for %s", target_date.isoformat())
         garmin = GarminService()
         try:
+            logger.debug("Fetching Garmin data for %s", target_date.isoformat())
             garmin.login()
             data = self._fetch_garmin_data(garmin, target_date)
         finally:
@@ -50,6 +56,7 @@ class AIAnalyzer:
             except Exception:
                 pass
 
+        logger.debug("Calculating baselines for %s", target_date.isoformat())
         # Calculate baselines
         baselines = self._calculate_baselines(data)
         historical_baselines = self._get_historical_baselines(target_date)
@@ -63,15 +70,25 @@ class AIAnalyzer:
         )
 
         # Get AI analysis
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            temperature=0.7,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                temperature=0.7,
+                messages=[{"role": "user", "content": prompt}]
+            )
+        except Exception:
+            logger.exception("Claude analysis failed for %s", target_date.isoformat())
+            raise
 
         # Parse response
         result = self._parse_response(response.content[0].text)
+        logger.info(
+            "Readiness result for %s | score=%s recommendation=%s",
+            target_date.isoformat(),
+            result.get("readiness_score"),
+            result.get("recommendation"),
+        )
 
         # Add Phase 1 enhanced metrics to response
         training_readiness_data = data.get("training_readiness", {})
