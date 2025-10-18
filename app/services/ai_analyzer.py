@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from anthropic import Anthropic
@@ -52,9 +52,15 @@ class AIAnalyzer:
 
         # Calculate baselines
         baselines = self._calculate_baselines(data)
+        historical_baselines = self._get_historical_baselines(target_date)
 
         # Build comprehensive prompt
-        prompt = self._build_prompt(target_date, data, baselines)
+        prompt = self._build_prompt(
+            target_date,
+            data,
+            baselines,
+            historical_baselines,
+        )
 
         # Get AI analysis
         response = self.client.messages.create(
@@ -125,6 +131,21 @@ class AIAnalyzer:
             "spo2_min": spo2_min,
             "respiration_avg": respiration_avg,
         }
+
+        # Attach structured context for UI consumers
+        result["recent_training_load"] = baselines
+        if historical_baselines:
+            result["historical_baselines"] = historical_baselines
+
+        readiness_history = self._get_readiness_history(target_date)
+        if readiness_history:
+            result["readiness_history"] = readiness_history
+
+        latest_sync = self._get_latest_metric_sync()
+        if latest_sync:
+            result["latest_data_sync"] = latest_sync
+
+        result["generated_at"] = datetime.utcnow().isoformat() + "Z"
 
         return result
 
@@ -275,7 +296,67 @@ class AIAnalyzer:
         finally:
             db.close()
 
-    def _build_prompt(self, target_date: date, data: dict[str, Any], baselines: dict[str, Any]) -> str:
+    def _get_historical_baselines(self, target_date: date) -> dict[str, Any] | None:
+        """Fetch 30-day baseline metrics if enough history exists."""
+        if not self._has_historical_data(target_date):
+            return None
+
+        db = SessionLocal()
+        try:
+            processor = DataProcessor(db)
+            return processor.get_all_baselines(target_date)
+        finally:
+            db.close()
+
+    def _get_readiness_history(self, target_date: date, days: int = 7) -> list[dict[str, Any]]:
+        """Return recent readiness scores for sparkline and context."""
+        db = SessionLocal()
+        try:
+            metrics = (
+                db.query(DailyMetric)
+                .filter(DailyMetric.date <= target_date)
+                .order_by(DailyMetric.date.desc())
+                .limit(days)
+                .all()
+            )
+
+            history: list[dict[str, Any]] = []
+            for metric in reversed(metrics):
+                if metric.training_readiness_score is None:
+                    continue
+                history.append(
+                    {
+                        "date": metric.date.isoformat(),
+                        "score": metric.training_readiness_score,
+                    }
+                )
+            return history
+        finally:
+            db.close()
+
+    def _get_latest_metric_sync(self) -> str | None:
+        """Return the most recent updated_at timestamp for daily metrics."""
+        db = SessionLocal()
+        try:
+            metric = (
+                db.query(DailyMetric)
+                .order_by(DailyMetric.updated_at.desc())
+                .first()
+            )
+            if metric and metric.updated_at:
+                # Ensure ISO8601 string for JSON clients
+                return metric.updated_at.replace(microsecond=0).isoformat() + "Z"
+            return None
+        finally:
+            db.close()
+
+    def _build_prompt(
+        self,
+        target_date: date,
+        data: dict[str, Any],
+        baselines: dict[str, Any],
+        historical_baselines: dict[str, Any] | None,
+    ) -> str:
         """Build comprehensive prompt for Claude AI."""
 
         # Extract key metrics
@@ -286,17 +367,7 @@ class AIAnalyzer:
         stress_data = data.get("stress", {})
         body_battery_data = data.get("body_battery", {})
 
-        # Check for historical baselines
-        has_history = self._has_historical_data(target_date)
-        historical_baselines = None
-
-        if has_history:
-            db = SessionLocal()
-            try:
-                processor = DataProcessor(db)
-                historical_baselines = processor.get_all_baselines(target_date)
-            finally:
-                db.close()
+        has_history = historical_baselines is not None
 
         # Format sleep info
         sleep_info = "No sleep data available"
@@ -421,6 +492,15 @@ class AIAnalyzer:
             acwr = historical_baselines["acwr"]
             trends = historical_baselines["training_trends"]
 
+            acwr_warning = "Insufficient data"
+            if acwr:
+                acwr_ratio = acwr.get("acwr")
+                if acwr_ratio is not None:
+                    if acwr_ratio > 1.5:
+                        acwr_warning = "ACWR >1.5 indicates HIGH INJURY RISK"
+                    else:
+                        acwr_warning = "ACWR in safe zone"
+
             historical_context = f"""
 
 HISTORICAL BASELINES (30-day analysis):
@@ -451,7 +531,7 @@ HISTORICAL BASELINES (30-day analysis):
   * ACWR Ratio: {acwr.get('acwr', 'N/A')}
   * Status: {acwr.get('status', 'unknown')}
   * Injury risk: {acwr.get('injury_risk', 'unknown').upper()}
-  * ⚠️ WARNING: {'ACWR >1.5 indicates HIGH INJURY RISK' if acwr.get('acwr', 0) > 1.5 else 'ACWR in safe zone' if acwr.get('acwr') else 'Insufficient data'}
+  * ⚠️ WARNING: {acwr_warning}
 
 - Training Trends (30 days):
   * Total activities: {trends.get('total_activities', 0)}

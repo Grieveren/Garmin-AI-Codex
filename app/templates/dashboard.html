@@ -5,6 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Training Optimizer - Dashboard</title>
     <style>
+        :root {
+            --page-bg: #f4f6fb;
+            --header-bg: linear-gradient(135deg, #5a67d8 0%, #764ba2 100%);
+            --surface: #ffffff;
+            --surface-alt: #eef1ff;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --muted: #a0aec0;
+            --border-soft: rgba(15, 23, 42, 0.08);
+            --accent-primary: #5a67d8;
+            --accent-success: #2f855a;
+            --accent-warning: #dd6b20;
+            --accent-danger: #e53e3e;
+            --badge-high: #c6f6d5;
+            --badge-high-text: #22543d;
+            --badge-moderate: #fef5e7;
+            --badge-moderate-text: #744210;
+            --badge-easy: #bee3f8;
+            --badge-easy-text: #2c5282;
+            --badge-rest: #fed7d7;
+            --badge-rest-text: #742a2a;
+            --card-shadow: 0 18px 38px rgba(15, 23, 42, 0.12);
+        }
+
+        .dark-theme {
+            --page-bg: #0f172a;
+            --header-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            --surface: #142146;
+            --surface-alt: #1d2d5c;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a5b4fc;
+            --muted: #94a3b8;
+            --border-soft: rgba(148, 163, 184, 0.18);
+            --accent-primary: #8891ff;
+            --accent-success: #48bb78;
+            --accent-warning: #f6ad55;
+            --accent-danger: #f56565;
+            --badge-high: rgba(72, 187, 120, 0.2);
+            --badge-high-text: #c6f6d5;
+            --badge-moderate: rgba(246, 173, 85, 0.2);
+            --badge-moderate-text: #fbd38d;
+            --badge-easy: rgba(99, 179, 237, 0.2);
+            --badge-easy-text: #bee3f8;
+            --badge-rest: rgba(245, 101, 101, 0.2);
+            --badge-rest-text: #fed7d7;
+            --card-shadow: 0 18px 48px rgba(2, 6, 23, 0.6);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,327 +61,510 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--page-bg);
+            color: var(--text-primary);
             min-height: 100vh;
-            padding: 2rem;
+            padding: 2.5rem 1.5rem;
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.75rem;
         }
 
-        .header {
-            background: white;
+        header.header {
+            background: var(--header-bg);
+            color: #ffffff;
             padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
+            border-radius: 18px;
+            box-shadow: var(--card-shadow);
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
+            gap: 1.5rem;
         }
 
         .header h1 {
-            color: #1a202c;
-            font-size: 2rem;
+            font-size: 2.1rem;
+            font-weight: 700;
         }
 
         .date {
-            color: #718096;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            opacity: 0.85;
+            margin-top: 0.5rem;
         }
 
-        .refresh-btn, .sync-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            padding: 0.6rem 1.1rem;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
-            transition: background 0.3s;
+            transition: background 0.3s ease, transform 0.2s ease, border-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
         }
 
-        .sync-btn {
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.28);
+            transform: translateY(-1px);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .control-btn--accent {
             background: #48bb78;
+            border-color: rgba(255, 255, 255, 0.28);
         }
 
-        .sync-btn:hover {
+        .control-btn--accent:hover {
             background: #38a169;
         }
 
-        .refresh-btn:hover {
-            background: #5a67d8;
-        }
-
-        .refresh-btn:disabled, .sync-btn:disabled {
-            background: #cbd5e0;
-            cursor: not-allowed;
-        }
-
-        .sync-status {
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
-
-        .sync-status.success {
-            background: #f0fff4;
-            border-left: 4px solid #48bb78;
-        }
-
-        .sync-status.error {
-            background: #fff5f5;
-            border-left: 4px solid #f56565;
-        }
-
-        .readiness-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-
-        .readiness-score {
-            font-size: 4rem;
-            font-weight: bold;
-            margin: 1rem 0;
-        }
-
-        .score-green { color: #48bb78; }
-        .score-yellow { color: #ecc94b; }
-        .score-orange { color: #ed8936; }
-        .score-red { color: #f56565; }
-
-        .recommendation-badge {
-            display: inline-block;
-            padding: 0.5rem 1.5rem;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-top: 1rem;
-        }
-
-        .badge-high { background: #c6f6d5; color: #22543d; }
-        .badge-moderate { background: #fef5e7; color: #744210; }
-        .badge-easy { background: #bee3f8; color: #2c5282; }
-        .badge-rest { background: #fed7d7; color: #742a2a; }
-
-        .workout-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        .workout-card h2 {
-            color: #1a202c;
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-        }
-
-        .workout-type {
-            background: #667eea;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            display: inline-block;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .workout-description {
-            background: #f7fafc;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            line-height: 1.6;
-            font-size: 1.05rem;
-        }
-
-        .workout-meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .meta-item {
-            background: #edf2f7;
-            padding: 1rem;
-            border-radius: 8px;
-        }
-
-        .meta-label {
-            color: #718096;
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.45rem 0.9rem;
             font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .meta-value {
-            color: #1a202c;
-            font-size: 1.2rem;
             font-weight: 600;
-            margin-top: 0.25rem;
+            white-space: nowrap;
         }
 
-        .factors-section, .tips-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
+        .status-chip--fresh {
+            background: rgba(72, 187, 120, 0.22);
         }
 
-        .factors-section h2, .tips-section h2 {
-            color: #1a202c;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
+        .status-chip--stale {
+            background: rgba(221, 107, 32, 0.22);
         }
 
-        .factor-item, .tip-item {
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            border-radius: 8px;
-            line-height: 1.6;
-        }
-
-        .factor-item {
-            background: #f0fff4;
-            border-left: 4px solid #48bb78;
-        }
-
-        .red-flag-item {
-            background: #fff5f5;
-            border-left: 4px solid #f56565;
-        }
-
-        .tip-item {
-            background: #ebf8ff;
-            border-left: 4px solid #4299e1;
-        }
-
-        .reasoning-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .reasoning-section h2 {
-            color: #1a202c;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-
-        .reasoning-text {
-            background: #fffaf0;
-            padding: 1.5rem;
-            border-radius: 8px;
-            line-height: 1.8;
-            color: #2d3748;
+        .status-chip--old {
+            background: rgba(229, 62, 62, 0.22);
         }
 
         .loading {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 3rem 2rem;
             text-align: center;
-            padding: 3rem;
-            color: white;
-            font-size: 1.2rem;
-        }
-
-        .error {
-            background: #fff5f5;
-            color: #c53030;
-            padding: 1.5rem;
-            border-radius: 8px;
-            border-left: 4px solid #f56565;
+            color: var(--text-secondary);
+            box-shadow: var(--card-shadow);
         }
 
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid var(--accent-primary);
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1.5rem;
             animation: spin 1s linear infinite;
-            margin: 2rem auto;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.75rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 18px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-soft);
+            transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .readiness-card h2 {
+            font-size: 1.45rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .readiness-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .readiness-score {
+            font-size: 4rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .score-green { color: var(--accent-success); }
+        .score-yellow { color: #ecc94b; }
+        .score-orange { color: var(--accent-warning); }
+        .score-red { color: var(--accent-danger); }
+
+        .confidence {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .trend-wrapper {
+            min-width: 180px;
+            flex: 1;
+        }
+
+        .trend-title {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .trend-chart {
+            background: var(--surface-alt);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: stretch;
+            min-height: 70px;
+        }
+
+        .trend-empty {
+            color: var(--muted);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .trend-sparkline {
+            width: 100%;
+            height: 48px;
+        }
+
+        .trend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .recommendation-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.55rem 1.75rem;
+            border-radius: 999px;
+            font-weight: 600;
+            margin-top: 1.75rem;
+            font-size: 1rem;
+        }
+
+        .badge-high { background: var(--badge-high); color: var(--badge-high-text); }
+        .badge-moderate { background: var(--badge-moderate); color: var(--badge-moderate-text); }
+        .badge-easy { background: var(--badge-easy); color: var(--badge-easy-text); }
+        .badge-rest { background: var(--badge-rest); color: var(--badge-rest-text); }
+
+        .metric-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            margin-top: 1.35rem;
+        }
+
+        .metric-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.55rem 0.9rem;
+            border-radius: 999px;
+            background: var(--surface-alt);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border: 1px solid var(--border-soft);
+        }
+
+        .metric-chip--good { color: var(--accent-success); }
+        .metric-chip--caution { color: var(--accent-warning); }
+        .metric-chip--danger { color: var(--accent-danger); }
+
+        .workout-card h2,
+        .metrics-card h2,
+        .factors-card h2,
+        .tips-card h2,
+        .red-flags-card h2,
+        .reasoning-card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .workout-type {
+            display: inline-flex;
+            align-items: center;
+            background: var(--accent-primary);
+            color: #ffffff;
+            padding: 0.45rem 1rem;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.04em;
+        }
+
+        .workout-description {
+            background: var(--surface-alt);
+            padding: 1.25rem;
+            border-radius: 12px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .workout-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .meta-item {
+            background: var(--surface-alt);
+            padding: 1rem;
+            border-radius: 12px;
+        }
+
+        .meta-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+        }
+
+        .meta-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 0.4rem;
+        }
+
+        .panel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .factor-item,
+        .tip-item {
+            padding: 1rem;
+            border-radius: 12px;
+            line-height: 1.65;
+            margin-bottom: 0.85rem;
+            border: 1px solid var(--border-soft);
+        }
+
+        .factor-item {
+            background: rgba(72, 187, 120, 0.12);
+            border-left: 4px solid var(--accent-success);
+        }
+
+        .tip-item {
+            background: rgba(99, 179, 237, 0.12);
+            border-left: 4px solid #4299e1;
+        }
+
+        .red-flag-item {
+            background: rgba(229, 62, 62, 0.12);
+            border-left: 4px solid var(--accent-danger);
+        }
+
+        .reasoning-text {
+            background: var(--surface-alt);
+            padding: 1.35rem;
+            border-radius: 12px;
+            line-height: 1.75;
+            color: var(--text-secondary);
+        }
+
+        .enhanced-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .enhanced-metric {
+            background: var(--surface-alt);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid var(--border-soft);
+        }
+
+        .enhanced-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+        }
+
+        .enhanced-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-top: 0.4rem;
+            color: var(--text-primary);
+        }
+
+        .error-card {
+            background: rgba(229, 62, 62, 0.12);
+            border-left: 4px solid var(--accent-danger);
+            border-radius: 12px;
+            padding: 1.25rem;
+            color: var(--accent-danger);
+        }
+
+        #error {
+            display: none;
+        }
+
+        #toast-container {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 1000;
+        }
+
+        .toast {
+            min-width: 260px;
+            max-width: 360px;
+            background: var(--surface);
+            color: var(--text-primary);
+            border-radius: 14px;
+            padding: 1rem 1.2rem;
+            box-shadow: var(--card-shadow);
+            border-left: 4px solid var(--accent-primary);
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .toast--visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast--success { border-left-color: var(--accent-success); }
+        .toast--warning { border-left-color: var(--accent-warning); }
+        .toast--error { border-left-color: var(--accent-danger); }
+
+        @media (max-width: 900px) {
+            body {
+                padding: 2rem 1rem;
+            }
+
+            header.header {
+                padding: 1.75rem;
+            }
+
+            .readiness-score {
+                font-size: 3.2rem;
+            }
+
+            #toast-container {
+                right: 1rem;
+                left: 1rem;
+                top: auto;
+                bottom: 1rem;
+                align-items: stretch;
+            }
+
+            .toast {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <header class="header">
             <div>
                 <h1>🏃 AI Training Optimizer</h1>
                 <div class="date" id="current-date"></div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="sync-btn" onclick="syncData()">
+            <div class="header-actions">
+                <button class="control-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode">
+                    🌙 Dark
+                </button>
+                <div class="status-chip" id="last-sync-chip">
+                    Last sync · --
+                </div>
+                <button class="control-btn control-btn--accent" id="sync-btn" type="button" onclick="syncData()">
                     ⬇️ Sync Data
                 </button>
-                <button class="refresh-btn" onclick="loadRecommendation()">
+                <button class="control-btn" id="refresh-btn" type="button" onclick="loadRecommendation()">
                     🔄 Refresh
                 </button>
             </div>
-        </div>
+        </header>
 
         <div id="loading" class="loading">
             <div class="spinner"></div>
             <p>Analyzing your Garmin data with Claude AI...</p>
         </div>
 
-        <div id="content" style="display: none;">
-            <!-- Readiness Score -->
-            <div class="readiness-card">
-                <h2>Today's Readiness</h2>
-                <div class="readiness-score" id="readiness-score">--</div>
-                <div id="confidence-badge"></div>
-                <div class="recommendation-badge" id="recommendation-badge">--</div>
-            </div>
-
-            <!-- Enhanced Metrics (Phase 1) -->
-            <div class="workout-card" id="enhanced-metrics-card" style="display: none;">
-                <h2>🔬 Enhanced Recovery Metrics</h2>
-                <div class="workout-meta">
-                    <div class="meta-item">
-                        <div class="meta-label">Garmin Readiness</div>
-                        <div class="meta-value" id="garmin-readiness">--</div>
+        <main id="content" class="main-content" style="display: none;">
+            <section class="card readiness-card">
+                <div class="readiness-header">
+                    <div>
+                        <h2>Today's Readiness</h2>
+                        <div class="readiness-score" id="readiness-score">--</div>
+                        <div class="confidence" id="confidence-badge">Confidence: --</div>
                     </div>
-                    <div class="meta-item">
-                        <div class="meta-label">VO2 Max</div>
-                        <div class="meta-value" id="vo2-max">--</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Training Status</div>
-                        <div class="meta-value" id="training-status">--</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Blood Oxygen (SPO2)</div>
-                        <div class="meta-value" id="spo2">--</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Respiration Rate</div>
-                        <div class="meta-value" id="respiration">--</div>
+                    <div class="trend-wrapper">
+                        <span class="trend-title">7-day trend</span>
+                        <div class="trend-chart" id="readiness-trend">
+                            <span class="trend-empty">Need more history</span>
+                        </div>
                     </div>
                 </div>
-            </div>
+                <div class="recommendation-badge" id="recommendation-badge">--</div>
+                <div class="metric-row">
+                    <div class="metric-chip" id="acwr-badge" style="display: none;"></div>
+                    <div class="metric-chip" id="load-summary-count">Activities · --</div>
+                    <div class="metric-chip" id="load-summary-distance">Distance · -- km</div>
+                    <div class="metric-chip" id="load-summary-duration">Time · -- min</div>
+                </div>
+            </section>
 
-            <!-- Suggested Workout -->
-            <div class="workout-card">
+            <section class="card workout-card">
                 <h2>💪 Suggested Workout</h2>
                 <div class="workout-type" id="workout-type">--</div>
                 <div class="workout-description" id="workout-description">--</div>
@@ -347,43 +578,72 @@
                         <div class="meta-value" id="workout-intensity">-- / 10</div>
                     </div>
                 </div>
-                <div class="workout-description" style="background: #f0fff4; margin-top: 1rem;">
+                <div class="workout-description" style="margin-top: 1.2rem; background: rgba(72, 187, 120, 0.12); border-left: 4px solid var(--accent-success);">
                     <strong>Why this workout?</strong><br>
                     <span id="workout-rationale">--</span>
                 </div>
-            </div>
+            </section>
 
-            <!-- Key Factors -->
-            <div class="factors-section">
-                <h2>✅ Key Factors</h2>
-                <div id="key-factors"></div>
-            </div>
-
-            <!-- Red Flags -->
-            <div id="red-flags-section" style="display: none;">
-                <div class="factors-section">
-                    <h2>⚠️ Things to Watch</h2>
-                    <div id="red-flags"></div>
+            <section class="card metrics-card" id="enhanced-metrics-card" style="display: none;">
+                <h2>🔬 Enhanced Recovery Metrics</h2>
+                <div class="enhanced-metrics">
+                    <div class="enhanced-metric">
+                        <div class="enhanced-label">Training Readiness</div>
+                        <div class="enhanced-value" id="garmin-readiness">--</div>
+                    </div>
+                    <div class="enhanced-metric">
+                        <div class="enhanced-label">VO₂ Max</div>
+                        <div class="enhanced-value" id="vo2-max">--</div>
+                    </div>
+                    <div class="enhanced-metric">
+                        <div class="enhanced-label">Training Status</div>
+                        <div class="enhanced-value" id="training-status">--</div>
+                    </div>
+                    <div class="enhanced-metric">
+                        <div class="enhanced-label">Blood Oxygen</div>
+                        <div class="enhanced-value" id="spo2">--</div>
+                    </div>
+                    <div class="enhanced-metric">
+                        <div class="enhanced-label">Respiration</div>
+                        <div class="enhanced-value" id="respiration">--</div>
+                    </div>
                 </div>
+            </section>
+
+            <div class="panel-grid">
+                <section class="card factors-card">
+                    <h2>✅ Key Factors</h2>
+                    <div id="key-factors"></div>
+                </section>
+                <section class="card tips-card">
+                    <h2>💡 Recovery Tips</h2>
+                    <div id="recovery-tips"></div>
+                </section>
             </div>
 
-            <!-- Recovery Tips -->
-            <div class="tips-section">
-                <h2>💡 Recovery Tips</h2>
-                <div id="recovery-tips"></div>
-            </div>
+            <section class="card red-flags-card" id="red-flags-section" style="display: none;">
+                <h2>⚠️ Things to Watch</h2>
+                <div id="red-flags"></div>
+            </section>
 
-            <!-- AI Reasoning -->
-            <div class="reasoning-section">
+            <section class="card reasoning-card">
                 <h2>🤖 AI Analysis</h2>
                 <div class="reasoning-text" id="ai-reasoning">--</div>
-            </div>
-        </div>
+            </section>
 
-        <div id="error" style="display: none;"></div>
+            <div id="error"></div>
+        </main>
     </div>
 
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
     <script>
+        const refreshBtn = document.getElementById('refresh-btn');
+        const syncBtn = document.getElementById('sync-btn');
+        const toastContainer = document.getElementById('toast-container');
+        const themeToggle = document.getElementById('theme-toggle');
+        const THEME_KEY = 'dashboard-theme';
+
         // Display current date
         const dateElement = document.getElementById('current-date');
         const today = new Date();
@@ -394,6 +654,9 @@
             day: 'numeric'
         });
 
+        applyStoredTheme();
+        themeToggle.addEventListener('click', toggleTheme);
+
         // Load recommendation on page load
         loadRecommendation();
 
@@ -401,42 +664,29 @@
             const loadingDiv = document.getElementById('loading');
             const contentDiv = document.getElementById('content');
             const errorDiv = document.getElementById('error');
-            const refreshBtn = document.querySelector('.refresh-btn');
 
-            // Show loading
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
             errorDiv.style.display = 'none';
             refreshBtn.disabled = true;
 
             try {
-                const response = await fetch('/api/recommendations/today');
+                const response = await fetch('/api/recommendations/today', { headers: { 'Cache-Control': 'no-cache' } });
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
                 displayRecommendation(data);
+                updateLastSyncChip(data.latest_data_sync || data.generated_at);
 
-                // Hide loading, show content
                 loadingDiv.style.display = 'none';
-                contentDiv.style.display = 'block';
+                contentDiv.style.display = 'flex';
             } catch (error) {
                 console.error('Error:', error);
-                // Safe error display using textContent
-                errorDiv.textContent = '';
-                const errorBox = document.createElement('div');
-                errorBox.className = 'error';
-                const errorTitle = document.createElement('strong');
-                errorTitle.textContent = 'Error loading recommendation:';
-                errorBox.appendChild(errorTitle);
-                errorBox.appendChild(document.createElement('br'));
-                const errorMsg = document.createTextNode(error.message);
-                errorBox.appendChild(errorMsg);
-                errorDiv.appendChild(errorBox);
-
+                renderError(error.message);
+                showToast(`Failed to load recommendation: ${error.message}`, 'error');
                 loadingDiv.style.display = 'none';
-                errorDiv.style.display = 'block';
             } finally {
                 refreshBtn.disabled = false;
             }
@@ -447,7 +697,6 @@
             const scoreElement = document.getElementById('readiness-score');
             scoreElement.textContent = data.readiness_score;
 
-            // Color code the score
             if (data.readiness_score >= 80) {
                 scoreElement.className = 'readiness-score score-green';
             } else if (data.readiness_score >= 60) {
@@ -458,11 +707,8 @@
                 scoreElement.className = 'readiness-score score-red';
             }
 
-            // Confidence badge
             const confidenceBadge = document.getElementById('confidence-badge');
             confidenceBadge.textContent = `Confidence: ${data.confidence}`;
-            confidenceBadge.style.color = '#718096';
-            confidenceBadge.style.fontSize = '0.9rem';
 
             // Recommendation badge
             const recBadge = document.getElementById('recommendation-badge');
@@ -479,6 +725,11 @@
                 recBadge.className = 'recommendation-badge badge-rest';
             }
 
+            // Recent load summary
+            updateLoadSummary(data.recent_training_load || {});
+            updateAcwrBadge(data.historical_baselines?.acwr);
+            renderReadinessTrend(data.readiness_history);
+
             // Workout details
             const workout = data.suggested_workout;
             document.getElementById('workout-type').textContent = workout.type.replace('_', ' ').toUpperCase();
@@ -487,113 +738,107 @@
             document.getElementById('workout-intensity').textContent = `${workout.intensity} / 10`;
             document.getElementById('workout-rationale').textContent = workout.rationale;
 
-            // Key factors - safe DOM manipulation
-            const factorsDiv = document.getElementById('key-factors');
-            factorsDiv.textContent = ''; // Clear existing
-            data.key_factors.forEach(factor => {
-                const div = document.createElement('div');
-                div.className = 'factor-item';
-                div.textContent = factor;
-                factorsDiv.appendChild(div);
-            });
+            // Key factors
+            renderList('key-factors', data.key_factors, 'factor-item');
 
-            // Red flags - safe DOM manipulation
-            const redFlagsSection = document.getElementById('red-flags-section');
+            // Red flags
             if (data.red_flags && data.red_flags.length > 0) {
-                redFlagsSection.style.display = 'block';
-                const redFlagsDiv = document.getElementById('red-flags');
-                redFlagsDiv.textContent = ''; // Clear existing
-                data.red_flags.forEach(flag => {
-                    const div = document.createElement('div');
-                    div.className = 'factor-item red-flag-item';
-                    div.textContent = flag;
-                    redFlagsDiv.appendChild(div);
-                });
+                document.getElementById('red-flags-section').style.display = 'block';
+                renderList('red-flags', data.red_flags, 'red-flag-item');
             } else {
-                redFlagsSection.style.display = 'none';
+                document.getElementById('red-flags-section').style.display = 'none';
             }
 
-            // Recovery tips - safe DOM manipulation
-            const tipsDiv = document.getElementById('recovery-tips');
-            tipsDiv.textContent = ''; // Clear existing
-            data.recovery_tips.forEach(tip => {
-                const div = document.createElement('div');
-                div.className = 'tip-item';
-                div.textContent = tip;
-                tipsDiv.appendChild(div);
-            });
+            // Recovery tips
+            renderList('recovery-tips', data.recovery_tips, 'tip-item');
 
             // AI reasoning
             document.getElementById('ai-reasoning').textContent = data.ai_reasoning;
 
-            // Enhanced metrics (Phase 1) - safe DOM manipulation
-            if (data.enhanced_metrics) {
-                const metrics = data.enhanced_metrics;
-                const card = document.getElementById('enhanced-metrics-card');
-                let hasAnyMetric = false;
+            // Enhanced metrics
+            renderEnhancedMetrics(data.enhanced_metrics);
+        }
 
-                // Garmin Readiness
-                if (metrics.training_readiness_score !== null && metrics.training_readiness_score !== undefined) {
-                    document.getElementById('garmin-readiness').textContent = `${metrics.training_readiness_score}/100`;
-                    hasAnyMetric = true;
-                } else {
-                    document.getElementById('garmin-readiness').textContent = 'Not available';
-                }
+        function renderList(containerId, items, itemClass) {
+            const container = document.getElementById(containerId);
+            container.textContent = '';
 
-                // VO2 Max
-                if (metrics.vo2_max) {
-                    document.getElementById('vo2-max').textContent = `${metrics.vo2_max} ml/kg/min`;
-                    hasAnyMetric = true;
-                } else {
-                    document.getElementById('vo2-max').textContent = 'Not available';
-                }
-
-                // Training Status
-                if (metrics.training_status) {
-                    const status = metrics.training_status.replace(/_/g, ' ').toUpperCase();
-                    document.getElementById('training-status').textContent = status;
-                    hasAnyMetric = true;
-                } else {
-                    document.getElementById('training-status').textContent = 'Not available';
-                }
-
-                // SPO2
-                if (metrics.spo2_avg) {
-                    let spo2Text = `${metrics.spo2_avg.toFixed(1)}%`;
-                    if (metrics.spo2_min) {
-                        spo2Text += ` (min: ${metrics.spo2_min.toFixed(1)}%)`;
-                    }
-                    document.getElementById('spo2').textContent = spo2Text;
-                    hasAnyMetric = true;
-                } else {
-                    document.getElementById('spo2').textContent = 'Not available';
-                }
-
-                // Respiration Rate
-                if (metrics.respiration_avg) {
-                    document.getElementById('respiration').textContent = `${metrics.respiration_avg.toFixed(1)} breaths/min`;
-                    hasAnyMetric = true;
-                } else {
-                    document.getElementById('respiration').textContent = 'Not available';
-                }
-
-                // Show card only if at least one metric is available
-                card.style.display = hasAnyMetric ? 'block' : 'none';
+            if (!items || items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = itemClass;
+                empty.textContent = 'No data available.';
+                container.appendChild(empty);
+                return;
             }
+
+            items.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = itemClass;
+                div.textContent = item;
+                container.appendChild(div);
+            });
+        }
+
+        function renderEnhancedMetrics(metrics) {
+            const card = document.getElementById('enhanced-metrics-card');
+            if (!metrics) {
+                card.style.display = 'none';
+                return;
+            }
+
+            let hasAnyMetric = false;
+
+            if (metrics.training_readiness_score !== null && metrics.training_readiness_score !== undefined) {
+                document.getElementById('garmin-readiness').textContent = `${metrics.training_readiness_score}/100`;
+                hasAnyMetric = true;
+            } else {
+                document.getElementById('garmin-readiness').textContent = 'Not available';
+            }
+
+            if (metrics.vo2_max) {
+                document.getElementById('vo2-max').textContent = `${metrics.vo2_max} ml/kg/min`;
+                hasAnyMetric = true;
+            } else {
+                document.getElementById('vo2-max').textContent = 'Not available';
+            }
+
+            if (metrics.training_status) {
+                const status = metrics.training_status.replace(/_/g, ' ').toUpperCase();
+                document.getElementById('training-status').textContent = status;
+                hasAnyMetric = true;
+            } else {
+                document.getElementById('training-status').textContent = 'Not available';
+            }
+
+            if (metrics.spo2_avg) {
+                let spo2Text = `${metrics.spo2_avg.toFixed(1)}%`;
+                if (metrics.spo2_min) {
+                    spo2Text += ` (min: ${metrics.spo2_min.toFixed(1)}%)`;
+                }
+                document.getElementById('spo2').textContent = spo2Text;
+                hasAnyMetric = true;
+            } else {
+                document.getElementById('spo2').textContent = 'Not available';
+            }
+
+            if (metrics.respiration_avg) {
+                document.getElementById('respiration').textContent = `${metrics.respiration_avg.toFixed(1)} breaths/min`;
+                hasAnyMetric = true;
+            } else {
+                document.getElementById('respiration').textContent = 'Not available';
+            }
+
+            card.style.display = hasAnyMetric ? 'block' : 'none';
         }
 
         async function syncData() {
-            const syncBtn = document.querySelector('.sync-btn');
             const originalText = syncBtn.textContent;
 
-            // Disable button and show loading
             syncBtn.disabled = true;
             syncBtn.textContent = '⏳ Syncing...';
 
             try {
-                const response = await fetch('/manual/sync/now', {
-                    method: 'POST'
-                });
+                const response = await fetch('/manual/sync/now', { method: 'POST' });
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -601,28 +846,225 @@
 
                 const result = await response.json();
 
-                // Show success message with detailed sync info
-                const message = `✅ Sync successful!\n\n` +
-                    `📅 Today (${result.dates_synced.today}):\n` +
-                    `   ${result.today_action === 'created' ? 'New data' : 'Updated'} - includes last night's sleep & HRV\n\n` +
-                    `📅 Yesterday (${result.dates_synced.yesterday}):\n` +
-                    `   ${result.yesterday_action === 'created' ? 'New data' : 'Updated'} - complete metrics\n\n` +
-                    `🏃 Activities: ${result.activities_synced}\n\n` +
-                    `${result.message}`;
-
-                alert(message);
-
-                // Refresh recommendations to include new data
+                showToast('Sync successful! Refreshing with latest data...', 'success');
                 loadRecommendation();
-
             } catch (error) {
                 console.error('Sync error:', error);
-                alert(`❌ Sync failed: ${error.message}`);
+                showToast(`Sync failed: ${error.message}`, 'error');
             } finally {
-                // Re-enable button
                 syncBtn.disabled = false;
                 syncBtn.textContent = originalText;
             }
+        }
+
+        function renderError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'error-card';
+
+            const title = document.createElement('strong');
+            title.textContent = 'Error loading recommendation:';
+            wrapper.appendChild(title);
+            wrapper.appendChild(document.createElement('br'));
+            wrapper.appendChild(document.createTextNode(message));
+
+            errorDiv.appendChild(wrapper);
+            errorDiv.style.display = 'block';
+        }
+
+        function showToast(message, variant = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast--${variant}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.add('toast--visible');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('toast--visible');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        function updateLoadSummary(summary) {
+            const count = summary.activity_count ?? '--';
+            const distance = summary.total_distance_km != null ? summary.total_distance_km : '--';
+            const duration = summary.total_duration_min != null ? Math.round(summary.total_duration_min) : '--';
+
+            document.getElementById('load-summary-count').textContent = `Activities · ${count}`;
+            document.getElementById('load-summary-distance').textContent = `Distance · ${distance} km`;
+            document.getElementById('load-summary-duration').textContent = `Time · ${duration} min`;
+        }
+
+        function updateAcwrBadge(acwrData) {
+            const badge = document.getElementById('acwr-badge');
+
+            if (!acwrData || !acwrData.acwr) {
+                badge.style.display = 'none';
+                badge.textContent = '';
+                badge.className = 'metric-chip';
+                return;
+            }
+
+            const acwr = typeof acwrData.acwr === 'number' ? acwrData.acwr.toFixed(2) : acwrData.acwr;
+            const status = acwrData.status?.replace(/_/g, ' ') || 'unknown';
+            const risk = (acwrData.injury_risk || 'unknown').toLowerCase();
+
+            badge.style.display = 'inline-flex';
+            badge.textContent = `ACWR · ${acwr} (${status})`;
+            badge.className = 'metric-chip';
+
+            if (risk === 'high') {
+                badge.classList.add('metric-chip--danger');
+            } else if (risk === 'moderate') {
+                badge.classList.add('metric-chip--caution');
+            } else {
+                badge.classList.add('metric-chip--good');
+            }
+        }
+
+        function renderReadinessTrend(history) {
+            const container = document.getElementById('readiness-trend');
+            container.innerHTML = '';
+
+            if (!history || history.length < 2) {
+                const empty = document.createElement('span');
+                empty.className = 'trend-empty';
+                empty.textContent = 'Need more history';
+                container.appendChild(empty);
+                return;
+            }
+
+            const width = 160;
+            const height = 50;
+            const scores = history.map((item) => item.score);
+            const max = Math.max(...scores);
+            const min = Math.min(...scores);
+            const range = max - min || 1;
+            const step = width / (scores.length - 1 || 1);
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('preserveAspectRatio', 'none');
+            svg.classList.add('trend-sparkline');
+
+            const points = scores.map((score, index) => {
+                const x = index * step;
+                const normalized = (score - min) / range;
+                const y = height - (normalized * (height - 10)) - 5;
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(' ');
+
+            const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            polyline.setAttribute('points', points);
+            polyline.setAttribute('fill', 'none');
+            polyline.setAttribute('stroke', 'var(--accent-primary)');
+            polyline.setAttribute('stroke-width', '3');
+            polyline.setAttribute('stroke-linecap', 'round');
+            polyline.setAttribute('stroke-linejoin', 'round');
+
+            const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+            gradient.setAttribute('id', 'trendGradient');
+            gradient.setAttribute('x1', '0');
+            gradient.setAttribute('x2', '0');
+            gradient.setAttribute('y1', '0');
+            gradient.setAttribute('y2', '1');
+
+            const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop1.setAttribute('offset', '0%');
+            stop1.setAttribute('stop-color', 'var(--accent-primary)');
+            stop1.setAttribute('stop-opacity', '0.35');
+
+            const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop2.setAttribute('offset', '100%');
+            stop2.setAttribute('stop-color', 'var(--accent-primary)');
+            stop2.setAttribute('stop-opacity', '0');
+
+            gradient.appendChild(stop1);
+            gradient.appendChild(stop2);
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            defs.appendChild(gradient);
+
+            const area = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            area.setAttribute('points', `0,${height} ${points} ${width},${height}`);
+            area.setAttribute('fill', 'url(#trendGradient)');
+            area.setAttribute('stroke', 'none');
+
+            svg.appendChild(defs);
+            svg.appendChild(area);
+            svg.appendChild(polyline);
+
+            container.appendChild(svg);
+
+            const labels = document.createElement('div');
+            labels.className = 'trend-labels';
+            labels.innerHTML = `<span>${history[0].score}</span><span>${history[history.length - 1].score}</span>`;
+            container.appendChild(labels);
+        }
+
+        function updateLastSyncChip(isoString) {
+            const chip = document.getElementById('last-sync-chip');
+
+            if (!isoString) {
+                chip.textContent = 'Last sync · unknown';
+                chip.className = 'status-chip status-chip--old';
+                return;
+            }
+
+            const parsed = new Date(isoString);
+            if (Number.isNaN(parsed.getTime())) {
+                chip.textContent = 'Last sync · unknown';
+                chip.className = 'status-chip status-chip--old';
+                return;
+            }
+
+            const now = new Date();
+            const diffMinutes = Math.floor((now.getTime() - parsed.getTime()) / 60000);
+
+            let label;
+            if (diffMinutes < 1) {
+                label = 'just now';
+            } else if (diffMinutes < 60) {
+                label = `${diffMinutes} min ago`;
+            } else if (diffMinutes < 1440) {
+                const hours = Math.floor(diffMinutes / 60);
+                label = `${hours} hr${hours > 1 ? 's' : ''} ago`;
+            } else {
+                const days = Math.floor(diffMinutes / 1440);
+                label = `${days} day${days > 1 ? 's' : ''} ago`;
+            }
+
+            chip.textContent = `Last sync · ${label}`;
+            chip.className = 'status-chip';
+
+            if (diffMinutes <= 90) {
+                chip.classList.add('status-chip--fresh');
+            } else if (diffMinutes <= 240) {
+                chip.classList.add('status-chip--stale');
+            } else {
+                chip.classList.add('status-chip--old');
+            }
+        }
+
+        function applyStoredTheme() {
+            const stored = localStorage.getItem(THEME_KEY);
+            if (stored === 'dark') {
+                document.body.classList.add('dark-theme');
+                themeToggle.textContent = '☀️ Light';
+            } else {
+                themeToggle.textContent = '🌙 Dark';
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark-theme');
+            localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+            themeToggle.textContent = isDark ? '☀️ Light' : '🌙 Dark';
         }
     </script>
 </body>

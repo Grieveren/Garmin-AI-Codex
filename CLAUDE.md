@@ -27,8 +27,8 @@ cp .env.example .env  # Configure with your credentials
 
 ### Running the Application
 ```bash
-# Start the FastAPI server
-uvicorn app.main:app --reload
+# Start the FastAPI server (port 8002 to avoid conflicts)
+uvicorn app.main:app --reload --port 8002
 
 # Run the scheduler process (separate terminal)
 python scripts/run_scheduler.py
@@ -71,6 +71,9 @@ python scripts/initial_setup.py
 
 # Backfill historical data
 python scripts/backfill_data.py --days 90
+
+# Migrate database to add Phase 1 enhanced metrics (if upgrading)
+python scripts/migrate_phase1_metrics.py
 ```
 
 ## Architecture
@@ -123,6 +126,11 @@ Uses Pydantic Settings with `.env` file support:
 - Scheduling parameters (sync time, timezone)
 - User profile (age, gender, HR zones, training goals)
 - AI model settings (model name, cache duration, token limits)
+
+**Python 3.14 Compatibility** (`app/compat/pydantic_eval_patch.py`):
+- Patches Pydantic's eval_type_backport to handle Python 3.14's updated typing module
+- Automatically imported in app/__init__.py to fix compatibility issues
+- Prevents "AttributeError: 'str' object has no attribute 'strip'" errors
 
 ### Scheduler Design (`scripts/run_scheduler.py`)
 
@@ -182,11 +190,11 @@ Uses Pydantic Settings with `.env` file support:
 ### Garmin API Reliability ✅ WORKING (Updated 2025-10-17)
 The `garminconnect` library reverse-engineers Garmin's web API and is NOT officially supported.
 
-**CURRENT STATUS (2025-10-17)**:
-- ✅ **Version**: garminconnect==0.2.26 (Python 3.14 compatible)
+**CURRENT STATUS (2025-10-18)**:
+- ✅ **Version**: garminconnect==0.2.30 (currently in requirements.txt)
 - ✅ **Authentication**: MFA flow working, tokens cached in `.garmin_tokens/`
 - ✅ **Data Retrieval**: ALL critical endpoints working (see GARMIN_API_DATA_AVAILABLE.md)
-- ⚠️ **Version 0.2.30**: Has Python 3.14 compatibility issues (type annotation bugs)
+- ✅ **Python 3.14 Compatibility**: Pydantic eval_type_backport issue resolved via app/compat/pydantic_eval_patch.py
 - ✅ **Data Available**: Steps, HR, HRV, sleep, activities, stress, body battery, SPO2, respiration, hydration, training status, and more
 
 **Key Findings**:
@@ -233,21 +241,27 @@ If Garmin updates their API:
 
 **System:**
 - `GET /health` - Health check
+- `GET /` - Dashboard home (redirects to /dashboard)
+- `GET /dashboard` - Main dashboard with today's recommendation
 
 **Data Sync:**
-- `POST /api/sync/manual` - Trigger manual Garmin sync
+- `POST /api/sync/manual` - Trigger manual Garmin sync (JSON endpoint)
+- `GET /manual/sync/now` - Manual sync UI
+- `GET /manual/mfa` - MFA code entry form
+- `POST /manual/mfa` - Submit MFA code
+- `POST /manual/mfa/request` - Request new MFA code
 
-**Recommendations (when implemented):**
-- `GET /api/recommendations/today` - Today's AI-generated workout
-- `POST /api/recommendations/adapt-plan` - Modify plan based on readiness
+**Recommendations:**
+- `GET /api/recommendations/today` - Today's AI-generated workout (✅ IMPLEMENTED)
+- `POST /api/recommendations/adapt-plan` - Modify plan based on readiness (backlog)
 
-**Training Plans (when implemented):**
-- `GET /api/training/plans/current` - Active training plan
-- `POST /api/training/plans` - Generate new plan
-- `PUT /api/training/plans/{id}/workouts/{id}` - Mark workout complete
+**Training Plans:**
+- `GET /api/training/plans/current` - Active training plan (backlog)
+- `POST /api/training/plans` - Generate new plan (backlog)
+- `PUT /api/training/plans/{id}/workouts/{id}` - Mark workout complete (backlog)
 
-**AI Chat (when implemented):**
-- `POST /api/chat` - Interactive AI coaching chat with streaming
+**AI Chat:**
+- `POST /api/chat` - Interactive AI coaching chat with streaming (backlog)
 
 ## Development Workflow
 
@@ -260,11 +274,17 @@ If Garmin updates their API:
 
 ### Testing Garmin Integration
 ```bash
-# Test authentication
+# Test authentication (first time or after token expiry)
 python scripts/sync_data.py --mfa-code 123456
 
-# Force new MFA code to be sent
-python scripts/sync_data.py --request-code
+# Test with existing cached tokens
+python scripts/sync_data.py
+
+# Force sync for specific date
+python scripts/sync_data.py --date 2025-10-15 --force
+
+# Web UI for MFA (more user-friendly)
+# Navigate to http://localhost:8002/manual/mfa
 ```
 
 ### Testing AI Analysis
@@ -344,3 +364,22 @@ See `GARMIN_API_DATA_AVAILABLE.md` for full details. Key data available:
 - Weight: Daily weigh-ins
 
 **72 total API methods tested and documented**
+
+## Important Notes
+
+### Python 3.14 Compatibility
+The codebase includes a compatibility patch for Python 3.14 + Pydantic:
+- **Issue**: Pydantic's `eval_type_backport` breaks with Python 3.14's updated `typing` module
+- **Fix**: `app/compat/pydantic_eval_patch.py` patches the problematic function
+- **Usage**: Automatically imported via `app/__init__.py` - no manual intervention needed
+- **When to update**: If Pydantic releases a native fix, remove the patch and update Pydantic version
+
+### Port Configuration
+- Default development port: **8002** (to avoid conflicts with other services)
+- Configured in .env as `APP_PORT=8002`
+- Update uvicorn command: `uvicorn app.main:app --reload --port 8002`
+
+### Database Schema Evolution
+- **Phase 1 Enhanced Metrics**: Added via `scripts/migrate_phase1_metrics.py`
+- New columns: training_readiness, vo2_max, training_status, spo2, respiration_rate
+- Run migration if upgrading from pre-Phase 1 database
