@@ -13,7 +13,7 @@ Each item is scoped to be tackled in its own branch/PR for ease of review.
    - Ensure the locking strategy prevents concurrent runs across environments.
    - Add logging around job start/end and failure scenarios.
 
-2. **Configuration & Secrets Hardening** — enforce environment-based settings across the stack.
+2. **Configuration & Secrets Hardening** _(✅ completed)_ — enforce environment-based settings across the stack.
    - Require critical keys (Garmin, Anthropic, secret key) at startup via Pydantic validation.
    - Document environment overrides and default ports/hosts.
    - Remove hard-coded fallbacks that mask missing configuration.

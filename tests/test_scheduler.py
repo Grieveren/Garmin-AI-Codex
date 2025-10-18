@@ -1,10 +1,13 @@
 """Tests for the asynchronous scheduler job."""
 from __future__ import annotations
 
+import os
 from datetime import date
 from typing import Any, Dict
 
 import pytest
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
 from scripts import run_scheduler
 

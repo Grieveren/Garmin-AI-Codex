@@ -36,6 +36,8 @@ cp .env.example .env
 # - GARMIN_EMAIL, GARMIN_PASSWORD
 # - ANTHROPIC_API_KEY
 # - User profile (age, gender, max HR, training goals)
+# - SECRET_KEY (generate a strong value, do not leave blank)
+# - Optional: LOG_DIR, SCHEDULER_HOUR, SCHEDULER_MINUTE
 ```
 
 ### 3. Initialize Database

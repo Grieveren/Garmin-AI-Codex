@@ -11,6 +11,7 @@ from typing import Any, Dict
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from filelock import FileLock
 
+from app.config import Settings, get_settings
 from app.database import Base, SessionLocal, engine
 from app.services.ai_analyzer import AIAnalyzer
 from app.services.garmin_service import GarminService
@@ -21,21 +22,28 @@ from scripts.sync_data import (
 )
 
 
-LOCK_PATH = Path(".scheduler.lock")
-LOGS_DIR = Path("logs")
-LOGS_DIR.mkdir(exist_ok=True)
-
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-file_handler = logging.FileHandler(LOGS_DIR / "scheduler.log")
-file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-logging.getLogger().addHandler(file_handler)
+_file_handler_configured = False
 
 logger = logging.getLogger("scheduler")
 
 
-def acquire_lock() -> FileLock:
-    lock = FileLock(str(LOCK_PATH))
+def configure_logging(settings: Settings) -> None:
+    global _file_handler_configured
+    if _file_handler_configured:
+        return
+
+    settings.log_dir.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(settings.log_dir / "scheduler.log")
+    file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    logging.getLogger().addHandler(file_handler)
+    _file_handler_configured = True
+
+
+def acquire_lock(lock_path: Path) -> FileLock:
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(str(lock_path))
     lock.acquire(timeout=0)
     return lock
 
@@ -140,24 +148,37 @@ async def run_once() -> None:
 
 
 async def main(run_now: bool) -> None:
-    lock = acquire_lock()
-    logger.info("Acquired scheduler lock at %s", LOCK_PATH)
+    settings = get_settings()
+    configure_logging(settings)
+
+    lock_path = settings.scheduler_lock_file
+    lock = acquire_lock(lock_path)
+    logger.info("Acquired scheduler lock at %s", lock_path)
     try:
         if run_now:
             await run_once()
             return
 
         scheduler = AsyncIOScheduler()
-        scheduler.add_job(run_daily_job, "cron", hour=8, minute=0)
+        scheduler.add_job(
+            run_daily_job,
+            "cron",
+            hour=settings.scheduler_hour,
+            minute=settings.scheduler_minute,
+        )
         scheduler.start()
 
-        logger.info("Scheduler running (cron 08:00). Press Ctrl+C to exit.")
+        logger.info(
+            "Scheduler running (cron %02d:%02d). Press Ctrl+C to exit.",
+            settings.scheduler_hour,
+            settings.scheduler_minute,
+        )
         await asyncio.Event().wait()
     finally:
         lock.release()
-        logger.info("Released scheduler lock")
-        if LOCK_PATH.exists():
-            LOCK_PATH.unlink()
+        logger.info("Released scheduler lock at %s", lock_path)
+        if lock_path.exists():
+            lock_path.unlink()
 
 
 if __name__ == "__main__":
