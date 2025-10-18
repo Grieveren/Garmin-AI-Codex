@@ -1,0 +1,23 @@
+{
+  "readiness_score": 80,
+  "recommendation": "moderate",
+  "confidence": "high",
+  "suggested_workout": {
+    "type": "tempo_run",
+    "description": "4 x 6 min tempo with 2 min jog recoveries",
+    "target_duration_minutes": 60,
+    "intensity": 7,
+    "rationale": "Sharpen threshold while maintaining manageable load"
+  },
+  "key_factors": [
+    "HRV stable vs baseline",
+    "Sleep score improved",
+    "Training load trending steady"
+  ],
+  "red_flags": [],
+  "recovery_tips": [
+    "Refuel within 30 minutes",
+    "Add light mobility session"
+  ],
+  "ai_reasoning": "Stubbed anthropic response for integration test"
+}

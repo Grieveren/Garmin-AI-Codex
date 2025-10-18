@@ -1,0 +1,71 @@
+{
+  "stats": {
+    "totalSteps": 12345,
+    "totalDistanceMeters": 9300,
+    "activeKilocalories": 740
+  },
+  "sleep": {
+    "dailySleepDTO": {
+      "sleepTimeSeconds": 25500,
+      "deepSleepSeconds": 7200,
+      "lightSleepSeconds": 12600,
+      "remSleepSeconds": 5700,
+      "sleepScores": {
+        "overall": {"value": 82}
+      }
+    }
+  },
+  "hrv": {
+    "hrvSummary": {
+      "lastNightAvg": 48,
+      "weeklyAvg": 50
+    }
+  },
+  "heart_rate": {
+    "restingHeartRate": 44,
+    "maxHeartRate": 182
+  },
+  "stress": [
+    {"stressLevel": 27},
+    {"stressLevel": 32}
+  ],
+  "body_battery": [
+    {"charged": 52, "drained": 18}
+  ],
+  "training_readiness": [
+    {"score": 67}
+  ],
+  "training_status": {
+    "mostRecentVO2Max": {"generic": {"vo2MaxValue": 54.3}},
+    "mostRecentTrainingStatus": {
+      "latestTrainingStatusData": {
+        "device1": {"trainingStatusFeedbackPhrase": "PRODUCTIVE"}
+      }
+    }
+  },
+  "spo2": {
+    "avgSleepSpO2": 97.2,
+    "lowestSpO2": 94.1
+  },
+  "respiration": {
+    "avgSleepRespirationValue": 13.8
+  },
+  "recent_activities": [
+    {
+      "activityId": 1,
+      "startTimeLocal": "2025-10-17T07:00:00",
+      "activityType": {"typeKey": "running"},
+      "activityName": "Morning Run",
+      "duration": 2700,
+      "distance": 7300,
+      "aerobicTrainingEffect": 2.5,
+      "anaerobicTrainingEffect": 0.5,
+      "trainingEffect": 80,
+      "averageHR": 148,
+      "maxHR": 171,
+      "avgPace": 280,
+      "elevationGain": 65,
+      "calories": 630
+    }
+  ]
+}

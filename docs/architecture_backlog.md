@@ -23,7 +23,7 @@ Each item is scoped to be tackled in its own branch/PR for ease of review.
    - Capture request/response summaries (without secrets) for sync jobs and API calls.
    - Define an error-handling pattern so failures surface in one place.
 
-4. **Testing Expansion** — improve automated coverage beyond unit tests.
+4. **Testing Expansion** _(✅ completed)_ — improve automated coverage beyond unit tests.
    - Add end-to-end tests that stub Garmin responses and assert the readiness JSON payload.
    - Provide fixtures for scheduler jobs so they can be invoked inside pytest.
    - Guard against regressions when AI prompt/config changes.
