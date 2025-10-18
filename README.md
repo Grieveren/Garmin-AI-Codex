@@ -91,6 +91,7 @@ Open http://localhost:8002/dashboard in your browser to see:
 
 - **Full Specification**: `AI_Training_Optimizer_Specification.md`
 - **Project Instructions (for AI)**: `CLAUDE.md`
+- **Repository Guidelines**: `AGENTS.md`
 - **Garmin API Data**: `GARMIN_API_DATA_AVAILABLE.md`
 - **Daily Sync Setup**: `DAILY_SYNC_SETUP.md`
 - **Historical Backfill**: `HISTORICAL_DATA_SETUP.md`

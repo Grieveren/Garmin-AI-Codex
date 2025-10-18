@@ -1,8 +1,9 @@
 """Service for interacting with the Garmin Connect API."""
 from datetime import date
+from pathlib import Path
 from typing import Any
 
-from pathlib import Path
+import app.compat  # noqa: F401  # Ensure compatibility patches load early.
 from garminconnect import Garmin
 from garth.exc import GarthHTTPError
 from garth.users import UserProfile, UserSettings
