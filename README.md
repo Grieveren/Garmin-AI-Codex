@@ -108,6 +108,7 @@ PYTHONPATH=. pytest -k readiness
 - **Garmin API Data**: `GARMIN_API_DATA_AVAILABLE.md`
 - **Daily Sync Setup**: `DAILY_SYNC_SETUP.md`
 - **Historical Backfill**: `HISTORICAL_DATA_SETUP.md`
+- **Architecture Backlog**: `docs/architecture_backlog.md`
 
 ## Tech Stack
 
