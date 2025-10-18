@@ -209,34 +209,47 @@ def _fetch_and_save_metrics(garmin: GarminService, db: SessionLocal, target_date
             metrics["body_battery_max"] = max(max_vals)
 
     # Training Readiness Score (Garmin's AI readiness 0-100)
-    if training_readiness and isinstance(training_readiness, dict):
-        metrics["training_readiness_score"] = training_readiness.get("readinessScore")
+    # API returns a list, extract first item if available - uses "score" key
+    if training_readiness and isinstance(training_readiness, list) and len(training_readiness) > 0:
+        if isinstance(training_readiness[0], dict):
+            metrics["training_readiness_score"] = training_readiness[0].get("score")
+    elif training_readiness and isinstance(training_readiness, dict):
+        metrics["training_readiness_score"] = training_readiness.get("score")
 
     # Training Status (VO2 max, training status)
     if training_status and isinstance(training_status, dict):
-        metrics["vo2_max"] = training_status.get("vo2Max")
-        metrics["training_status"] = training_status.get("trainingStatusKey")
+        # VO2 Max - nested in mostRecentVO2Max → generic → vo2MaxValue
+        if "mostRecentVO2Max" in training_status:
+            vo2_data = training_status.get("mostRecentVO2Max")
+            if vo2_data and isinstance(vo2_data, dict):
+                generic = vo2_data.get("generic")
+                if generic and isinstance(generic, dict):
+                    metrics["vo2_max"] = generic.get("vo2MaxValue")
 
-    # SPO2 (Blood Oxygen)
+        # Training Status - nested in mostRecentTrainingStatus → latestTrainingStatusData → {deviceId}
+        if "mostRecentTrainingStatus" in training_status:
+            status_data = training_status.get("mostRecentTrainingStatus")
+            if status_data and isinstance(status_data, dict):
+                latest = status_data.get("latestTrainingStatusData")
+                if latest and isinstance(latest, dict):
+                    # Get first device's data (usually primary device)
+                    for device_id, device_data in latest.items():
+                        if device_data and isinstance(device_data, dict):
+                            metrics["training_status"] = device_data.get("trainingStatusFeedbackPhrase")
+                            break
+
+    # SPO2 (Blood Oxygen) - Garmin uses different keys
     if spo2 and isinstance(spo2, dict):
-        # Try to get sleep SPO2 average first, fallback to overall
-        if "sleepSpo2" in spo2 and isinstance(spo2["sleepSpo2"], dict):
-            metrics["spo2_avg"] = spo2["sleepSpo2"].get("avgSpo2")
-            metrics["spo2_min"] = spo2["sleepSpo2"].get("lowestSpo2")
-        elif "values" in spo2 and isinstance(spo2["values"], list):
-            # Calculate from values array if available
-            values = [v.get("value") for v in spo2["values"] if isinstance(v, dict) and v.get("value")]
-            if values:
-                metrics["spo2_avg"] = sum(values) / len(values)
-                metrics["spo2_min"] = min(values)
+        # Keys are at root level: avgSleepSpO2, lowestSpO2
+        if "avgSleepSpO2" in spo2:
+            metrics["spo2_avg"] = spo2.get("avgSleepSpO2")
+        if "lowestSpO2" in spo2:
+            metrics["spo2_min"] = spo2.get("lowestSpO2")
 
-    # Respiration Rate
+    # Respiration Rate - Garmin uses avgSleepRespirationValue
     if respiration and isinstance(respiration, dict):
-        # Try sleep respiration first
-        if "sleepRespiration" in respiration and isinstance(respiration["sleepRespiration"], dict):
-            metrics["respiration_avg"] = respiration["sleepRespiration"].get("avgRespirationRate")
-        elif "avgRespirationRate" in respiration:
-            metrics["respiration_avg"] = respiration.get("avgRespirationRate")
+        if "avgSleepRespirationValue" in respiration:
+            metrics["respiration_avg"] = respiration.get("avgSleepRespirationValue")
 
     # Save to database
     existing = db.query(DailyMetric).filter(DailyMetric.date == target_date).first()

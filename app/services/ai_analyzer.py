@@ -73,27 +73,58 @@ class AIAnalyzer:
         spo2_data = data.get("spo2", {})
         respiration_data = data.get("respiration", {})
 
-        result["enhanced_metrics"] = {
-            "training_readiness_score": training_readiness_data.get("readinessScore") if isinstance(training_readiness_data, dict) else None,
-            "vo2_max": training_status_data.get("vo2Max") if isinstance(training_status_data, dict) else None,
-            "training_status": training_status_data.get("trainingStatusKey") if isinstance(training_status_data, dict) else None,
-            "spo2_avg": None,
-            "spo2_min": None,
-            "respiration_avg": None,
-        }
+        # Extract Training Readiness (API returns list, uses "score" key)
+        training_readiness_score = None
+        if training_readiness_data and isinstance(training_readiness_data, list) and len(training_readiness_data) > 0:
+            if isinstance(training_readiness_data[0], dict):
+                training_readiness_score = training_readiness_data[0].get("score")
+        elif training_readiness_data and isinstance(training_readiness_data, dict):
+            training_readiness_score = training_readiness_data.get("score")
 
-        # Extract SPO2
+        # Extract Training Status (nested mostRecent* keys)
+        vo2_max = None
+        training_status = None
+        if training_status_data and isinstance(training_status_data, dict):
+            # VO2 Max - nested in mostRecentVO2Max → generic → vo2MaxValue
+            if "mostRecentVO2Max" in training_status_data:
+                vo2_data = training_status_data.get("mostRecentVO2Max")
+                if vo2_data and isinstance(vo2_data, dict):
+                    generic = vo2_data.get("generic")
+                    if generic and isinstance(generic, dict):
+                        vo2_max = generic.get("vo2MaxValue")
+
+            # Training Status - nested in mostRecentTrainingStatus → latestTrainingStatusData → {deviceId}
+            if "mostRecentTrainingStatus" in training_status_data:
+                status_data = training_status_data.get("mostRecentTrainingStatus")
+                if status_data and isinstance(status_data, dict):
+                    latest = status_data.get("latestTrainingStatusData")
+                    if latest and isinstance(latest, dict):
+                        # Get first device's data (usually primary device)
+                        for device_id, device_data in latest.items():
+                            if device_data and isinstance(device_data, dict):
+                                training_status = device_data.get("trainingStatusFeedbackPhrase")
+                                break
+
+        # Extract SPO2 (root level keys)
+        spo2_avg = None
+        spo2_min = None
         if spo2_data and isinstance(spo2_data, dict):
-            if "sleepSpo2" in spo2_data and isinstance(spo2_data["sleepSpo2"], dict):
-                result["enhanced_metrics"]["spo2_avg"] = spo2_data["sleepSpo2"].get("avgSpo2")
-                result["enhanced_metrics"]["spo2_min"] = spo2_data["sleepSpo2"].get("lowestSpo2")
+            spo2_avg = spo2_data.get("avgSleepSpO2")
+            spo2_min = spo2_data.get("lowestSpO2")
 
-        # Extract respiration
+        # Extract respiration (avgSleepRespirationValue)
+        respiration_avg = None
         if respiration_data and isinstance(respiration_data, dict):
-            if "sleepRespiration" in respiration_data and isinstance(respiration_data["sleepRespiration"], dict):
-                result["enhanced_metrics"]["respiration_avg"] = respiration_data["sleepRespiration"].get("avgRespirationRate")
-            elif "avgRespirationRate" in respiration_data:
-                result["enhanced_metrics"]["respiration_avg"] = respiration_data.get("avgRespirationRate")
+            respiration_avg = respiration_data.get("avgSleepRespirationValue")
+
+        result["enhanced_metrics"] = {
+            "training_readiness_score": training_readiness_score,
+            "vo2_max": vo2_max,
+            "training_status": training_status,
+            "spo2_avg": spo2_avg,
+            "spo2_min": spo2_min,
+            "respiration_avg": respiration_avg,
+        }
 
         return result
 
@@ -321,41 +352,60 @@ class AIAnalyzer:
         respiration_data = data.get("respiration", {})
 
         garmin_readiness_info = "Not available"
-        if training_readiness_data and isinstance(training_readiness_data, dict):
-            readiness_score = training_readiness_data.get("readinessScore")
+        # Training readiness returns a list, uses "score" key
+        if training_readiness_data and isinstance(training_readiness_data, list) and len(training_readiness_data) > 0:
+            if isinstance(training_readiness_data[0], dict):
+                readiness_score = training_readiness_data[0].get("score")
+                if readiness_score is not None:
+                    garmin_readiness_info = f"{readiness_score}/100"
+        elif training_readiness_data and isinstance(training_readiness_data, dict):
+            readiness_score = training_readiness_data.get("score")
             if readiness_score is not None:
                 garmin_readiness_info = f"{readiness_score}/100"
 
         vo2_max_info = "Not available"
         training_status_info = "Not available"
         if training_status_data and isinstance(training_status_data, dict):
-            vo2_max = training_status_data.get("vo2Max")
-            if vo2_max:
-                vo2_max_info = f"{vo2_max} ml/kg/min"
-            training_status_key = training_status_data.get("trainingStatusKey")
-            if training_status_key:
-                training_status_info = training_status_key
+            # VO2 Max - nested in mostRecentVO2Max → generic → vo2MaxValue
+            if "mostRecentVO2Max" in training_status_data:
+                vo2_data = training_status_data.get("mostRecentVO2Max")
+                if vo2_data and isinstance(vo2_data, dict):
+                    generic = vo2_data.get("generic")
+                    if generic and isinstance(generic, dict):
+                        vo2_max = generic.get("vo2MaxValue")
+                        if vo2_max:
+                            vo2_max_info = f"{vo2_max} ml/kg/min"
+
+            # Training Status - nested in mostRecentTrainingStatus → latestTrainingStatusData → {deviceId}
+            if "mostRecentTrainingStatus" in training_status_data:
+                status_data = training_status_data.get("mostRecentTrainingStatus")
+                if status_data and isinstance(status_data, dict):
+                    latest = status_data.get("latestTrainingStatusData")
+                    if latest and isinstance(latest, dict):
+                        # Get first device's data (usually primary device)
+                        for device_id, device_data in latest.items():
+                            if device_data and isinstance(device_data, dict):
+                                training_status_key = device_data.get("trainingStatusFeedbackPhrase")
+                                if training_status_key:
+                                    training_status_info = training_status_key
+                                break
 
         spo2_info = "Not available"
         if spo2_data and isinstance(spo2_data, dict):
-            if "sleepSpo2" in spo2_data and isinstance(spo2_data["sleepSpo2"], dict):
-                avg_spo2 = spo2_data["sleepSpo2"].get("avgSpo2")
-                min_spo2 = spo2_data["sleepSpo2"].get("lowestSpo2")
-                if avg_spo2:
-                    spo2_info = f"Average: {avg_spo2}%"
-                    if min_spo2:
-                        spo2_info += f", Minimum: {min_spo2}%"
+            # Keys are at root level: avgSleepSpO2, lowestSpO2
+            avg_spo2 = spo2_data.get("avgSleepSpO2")
+            min_spo2 = spo2_data.get("lowestSpO2")
+            if avg_spo2:
+                spo2_info = f"Average: {avg_spo2}%"
+                if min_spo2:
+                    spo2_info += f", Minimum: {min_spo2}%"
 
         respiration_info = "Not available"
         if respiration_data and isinstance(respiration_data, dict):
-            if "sleepRespiration" in respiration_data and isinstance(respiration_data["sleepRespiration"], dict):
-                avg_resp = respiration_data["sleepRespiration"].get("avgRespirationRate")
-                if avg_resp:
-                    respiration_info = f"{avg_resp} breaths/min"
-            elif "avgRespirationRate" in respiration_data:
-                avg_resp = respiration_data.get("avgRespirationRate")
-                if avg_resp:
-                    respiration_info = f"{avg_resp} breaths/min"
+            # Garmin uses avgSleepRespirationValue
+            avg_resp = respiration_data.get("avgSleepRespirationValue")
+            if avg_resp:
+                respiration_info = f"{avg_resp} breaths/min"
 
         # Format activity summary
         activity_summary = f"{baselines['activity_count']} activities in last 7 days, "
@@ -467,10 +517,48 @@ IMPORTANT GUIDELINES:
 - High stress or low body battery → scale back intensity
 - **ACWR >1.3 = approaching injury risk; >1.5 = HIGH RISK** - recommend reduced volume/intensity
 - 7+ consecutive training days without rest = overtraining risk - MANDATE rest day
-- **Garmin Training Readiness <60** = consider easy day or rest
-- **SPO2 <95% average** during sleep may indicate poor recovery or altitude effects
-- **Respiration rate elevated** (compare to athlete's baseline if available) = stress/illness/overtraining indicator
-- **Training Status "overreaching"** = reduce volume immediately
+
+**PHASE 1 ENHANCED METRICS - HOW TO USE THEM:**
+- **Garmin Training Readiness Score**: Primary indicator of readiness
+  * <20 = CRITICAL - mandate rest day regardless of other metrics
+  * 20-40 = POOR - strong consideration for rest or very easy day
+  * 40-60 = LOW - recommend easy/recovery day
+  * 60-75 = MODERATE - moderate training appropriate
+  * 75+ = GOOD/EXCELLENT - green light for quality work
+  * **ALWAYS mention this score in your reasoning** - it's Garmin's AI assessment
+
+- **Training Status** (PRODUCTIVE/MAINTAINING/PEAKING/STRAINED/OVERREACHING/UNPRODUCTIVE):
+  * **ALWAYS reference this in ai_reasoning** to contextualize training effectiveness
+  * PRODUCTIVE = training is working, gains are happening
+  * MAINTAINING = holding fitness, no regression
+  * PEAKING = approaching peak form
+  * STRAINED/OVERREACHING = warning signs, reduce volume
+  * UNPRODUCTIVE = detraining or overtraining, intervention needed
+  * Use this to reassure athlete that rest is part of productive training, not a failure
+
+- **VO2 Max**:
+  * **Mention when discussing fitness level or training capacity**
+  * <35 = Low fitness (general population)
+  * 35-45 = Average recreational athlete
+  * 45-55 = Well-trained athlete
+  * 55-65 = Highly trained/competitive
+  * >65 = Elite level
+  * Use this to contextualize the athlete's training capacity and recovery demands
+
+- **SPO2 (Blood Oxygen Saturation)**:
+  * **Reference if <95% average or showing concerning trends**
+  * <95% = potential recovery issue, altitude effect, or respiratory concern
+  * Normal: 95-100%
+  * Combine with respiration rate for respiratory health assessment
+
+- **Respiration Rate**:
+  * **Mention if elevated above baseline or >15 breaths/min**
+  * Normal resting: 8-12 breaths/min
+  * Elevated = possible stress/illness/overtraining
+  * Combine with SPO2 and HRV for comprehensive recovery picture
+
+**CRITICAL: Your ai_reasoning MUST integrate these Phase 1 metrics to provide complete context, not just list problems.**
+
 - Trust the data but acknowledge the athlete should listen to their body
 - Be specific with workout details (duration, intensity, HR zones if available)
 - Prioritize LONG-TERM health and injury prevention over short-term gains
