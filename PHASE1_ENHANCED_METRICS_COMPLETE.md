@@ -84,9 +84,9 @@ Phase 1 Enhanced Metrics extends the AI Training Optimizer with advanced Garmin 
 ### Files Modified
 
 **Data Extraction (3 files)**:
-1. `scripts/sync_data.py` - Daily automated sync (lines 138-172)
-2. `app/routers/manual_sync.py` - Manual sync endpoint (lines 211-243)
-3. `app/services/ai_analyzer.py` - AI analysis data preparation (lines 76-117, 354-391)
+1. `scripts/sync_data.py` - Daily automated sync fetches and stores Phase 1 metrics.
+2. `app/routers/manual_sync.py` - Manual sync endpoint persists the same enhanced metrics.
+3. `app/services/ai_analyzer.py` - Prepares Phase 1 metrics for AI prompts and response payloads.
 
 **Database**:
 - Migration script: `scripts/migrate_phase1_metrics.py`
@@ -97,9 +97,8 @@ Phase 1 Enhanced Metrics extends the AI Training Optimizer with advanced Garmin 
 - Graceful degradation: Card hidden when all metrics are null
 
 **AI Prompt**:
-- Enhanced guidelines: `app/services/ai_analyzer.py` (lines 512-564)
-- Detailed usage instructions for each Phase 1 metric
-- **CRITICAL** requirement: AI must integrate all metrics in reasoning
+- Enhanced guidelines: `app/services/ai_analyzer.py` includes detailed usage instructions for each Phase 1 metric.
+- **CRITICAL** requirement: AI must integrate all metrics in reasoning.
 
 ### API Endpoints
 

@@ -182,12 +182,12 @@ Uses Pydantic Settings with `.env` file support:
 
 **Phase 4 (Automation) - 🟡 PARTIAL:**
 - ✅ Scheduler infrastructure with locking (scripts/run_scheduler.py)
-- ✅ **Daily sync job (FULLY WORKING)** - runs at 7 AM with Phase 1 metrics
+- 🟡 Daily sync job placeholder (logs at 08:00; Garmin sync + AI analysis wiring pending)
 - ⚠️ Email/SMS notifications (not implemented)
 
 ## Critical Considerations
 
-### Garmin API Reliability ✅ WORKING (Updated 2025-10-17)
+### Garmin API Reliability ✅ WORKING (Updated 2025-10-18)
 The `garminconnect` library reverse-engineers Garmin's web API and is NOT officially supported.
 
 **CURRENT STATUS (2025-10-18)**:
@@ -200,7 +200,7 @@ The `garminconnect` library reverse-engineers Garmin's web API and is NOT offici
 **Key Findings**:
 - 72 GET methods available in garminconnect
 - Most reliable methods: `get_stats()`, `get_heart_rates()`, `get_sleep_data()`, `get_activities()`
-- `get_user_summary()` works in 0.2.26 (was broken in 0.2.17)
+- `get_user_summary()` works in 0.2.30 (was broken in 0.2.17)
 - Tokens cache successfully and work without MFA for extended periods
 
 If Garmin updates their API:

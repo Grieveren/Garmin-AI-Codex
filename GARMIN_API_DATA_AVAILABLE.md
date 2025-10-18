@@ -1,7 +1,7 @@
 # Garmin Connect API - Available Data Summary
 
-**Library Version**: garminconnect==0.2.26
-**Test Date**: 2025-10-17
+**Library Version**: garminconnect==0.2.30
+**Test Date**: 2025-10-18
 **Status**: ✅ All core endpoints working
 
 ---

@@ -39,12 +39,11 @@ This system uses the `garminconnect` Python library, which is unofficial and rev
 - ✅ Works reliably for personal use (as of Oct 2025)
 - ✅ Actively maintained by community
 
-**VERIFIED STATUS (October 17, 2025):**
-- ✅ garminconnect==0.2.26 confirmed working with Python 3.14
+**VERIFIED STATUS (October 18, 2025):**
+- ✅ garminconnect==0.2.30 confirmed working with Python 3.14 (compatibility patch applied via `app/compat/pydantic_eval_patch.py`)
 - ✅ MFA authentication flow implemented and tested
 - ✅ Token caching in `.garmin_tokens/` directory working reliably
 - ✅ ALL 72 GET methods tested and documented (see GARMIN_API_DATA_AVAILABLE.md)
-- ⚠️ Version 0.2.30 has Python 3.14 compatibility issues - avoid
 - ⚠️ get_user_summary() method has known bugs - use fallback to get_stats()
 
 **MFA Authentication:**
@@ -86,7 +85,7 @@ Uses Claude Sonnet 4.5 (most intelligent model). Can reduce costs by:
 
 - **Python 3.10+**
 - **FastAPI** - Web API and dashboard
-- **garminconnect==0.2.26** - Garmin data fetching (Python 3.14 compatible, unofficial but verified working)
+- **garminconnect==0.2.30** - Garmin data fetching (Python 3.14 compatible, unofficial but verified working)
 - **SQLite** - Data storage (upgradeable to PostgreSQL)
 - **Anthropic Python SDK** - Claude AI integration (claude-sonnet-4-5-20250929)
 - **Plotly/Dash** - Interactive visualizations
@@ -1699,69 +1698,9 @@ docker-compose up -d
 
 ---
 
-## 📚 Dependencies (requirements.txt)
+## 📚 Dependencies
 
-```txt
-# Web Framework
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-jinja2==3.1.3
-python-multipart==0.0.6
-
-# Garmin Integration
-garminconnect==0.2.26  # Python 3.14 compatible version
-
-# AI Integration
-anthropic==0.18.1
-
-# Database
-sqlalchemy==2.0.25
-alembic==1.13.1
-psycopg2-binary==2.9.9  # For PostgreSQL
-
-# Data Processing
-pandas==2.2.0
-numpy==1.26.3
-
-# Visualization
-plotly==5.18.0
-dash==2.14.2
-
-# Scheduling
-apscheduler==3.10.4
-
-# Configuration
-python-dotenv==1.0.1
-pydantic==2.5.3
-pydantic-settings==2.1.0
-
-# Utilities
-requests==2.31.0
-aiofiles==23.2.1
-python-dateutil==2.8.2
-pytz==2024.1
-
-# Notifications
-emails==0.6
-twilio==8.11.1  # Optional for SMS
-
-# Testing
-pytest==7.4.4
-pytest-asyncio==0.23.3
-httpx==0.26.0
-
-# Logging
-loguru==0.7.2
-
-# Security
-cryptography==42.0.0
-python-jose[cryptography]==3.3.0
-
-# Development
-black==24.1.1
-flake8==7.0.0
-mypy==1.8.0
-```
+See `requirements.txt` for the authoritative, pinned package list. Last verified sync: **October 18, 2025** (`garminconnect==0.2.30`, `fastapi==0.119.0`, `uvicorn==0.37.0`, `pydantic==2.12.3`). Keep documentation in sync by updating that file first and referencing it here.
 
 ---
 
@@ -1770,7 +1709,7 @@ mypy==1.8.0
 Focus on Weeks 1-4 to ship the MVP; treat Week 5+ items as backlog features once the core loop is proven.
 
 ### Week 1: Core Data Pipeline ✅ COMPLETE
-1. ✅ Garmin data fetching (garminconnect 0.2.26)
+1. ✅ Garmin data fetching (garminconnect 0.2.30)
 2. ✅ MFA authentication with web UI (/manual/mfa)
 3. ✅ Token caching in .garmin_tokens/ directory
 4. ✅ Manual sync functionality tested and working
@@ -1781,19 +1720,19 @@ Focus on Weeks 1-4 to ship the MVP; treat Week 5+ items as backlog features once
 1. ✅ Claude AI integration
 2. ✅ Daily readiness analysis
 3. ✅ Recommendation generation
-4. ✅ Basic training plan creation
+4. ⚠️ Basic training plan creation (backlog)
 
 ### Week 3: User Interface
 1. ✅ API endpoints
 2. ✅ Web dashboard
 3. ✅ Today's training view
-4. ✅ Training plan display
+4. ⚠️ Training plan display (not implemented)
 
 ### Week 4: Automation
-1. ✅ Scheduled daily sync
-2. ✅ Automatic AI analysis
-3. ✅ Email notifications
-4. ✅ Plan adaptation
+1. 🟡 Scheduler scaffold with locking in place (run_scheduler.py placeholder job)
+2. ⚠️ Automatic AI analysis (pending integration with scheduler)
+3. ⚠️ Email notifications
+4. ⚠️ Plan adaptation
 
 ### Week 5+: Enhancement (Backlog after MVP)
 1. Advanced analytics
@@ -1832,7 +1771,7 @@ Focus on Weeks 1-4 to ship the MVP; treat Week 5+ items as backlog features once
 Solution:
 1. Check credentials in .env file
 2. Use web UI at http://localhost:8002/manual/mfa for MFA code entry
-3. Ensure garminconnect==0.2.26 (not 0.2.30 - has Python 3.14 bugs)
+3. Ensure garminconnect==0.2.30 (project is pinned to this version with a Python 3.14 compatibility patch)
 4. Delete .garmin_tokens/ directory to force fresh authentication
 5. If rate-limited, wait 20-30 minutes before retry
 6. Check GitHub issues: https://github.com/cyberjunky/python-garminconnect
@@ -1985,7 +1924,7 @@ Good luck with your training! 🏃‍♂️💪📊
 - Adaptive training plans with real-time adjustments
 - Complete implementation guide for Claude Code
 - **Version 1.1** (October 17, 2025) - Updated with verified implementation status
-- Added confirmed working garminconnect version (0.2.26)
+- Added confirmed working garminconnect version (0.2.30)
 - Documented MFA authentication implementation
 - Added reference to comprehensive API testing (72 methods)
 - Updated Phase 1 completion status

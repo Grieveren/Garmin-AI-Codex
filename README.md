@@ -2,7 +2,7 @@
 
 An intelligent training assistant that analyzes Garmin fitness data using Claude AI to generate personalized daily workout recommendations. Prevents overtraining through smart load management and recovery tracking.
 
-## ✅ Current Status (Phase 1 Complete - 2025-10-17)
+## ✅ Current Status (Phase 1 Complete - 2025-10-18)
 
 **Production-Ready Features:**
 - ✅ Garmin Connect integration with MFA support (token caching)
@@ -14,7 +14,8 @@ An intelligent training assistant that analyzes Garmin fitness data using Claude
   - Respiration Rate
 - ✅ AI-powered daily readiness analysis (Claude Sonnet 4.5)
 - ✅ Web dashboard with today's recommendation
-- ✅ Automated daily sync (7 AM) with 90 days of historical data
+- ✅ Historical baselines (30-day) with ACWR and trend analysis
+- 🟡 Scheduler scaffold in place (cron-friendly, APScheduler runner logs placeholder job)
 - ✅ HRV baseline tracking and ACWR calculation
 
 ## Quick Start
@@ -56,17 +57,29 @@ python scripts/sync_data.py --mfa-code 123456
 # Terminal 1: Start web server
 uvicorn app.main:app --reload --port 8002
 
-# Terminal 2: Start scheduler (optional - for automated sync)
+# Terminal 2: Run scheduler scaffold (optional)
+# Current job logs a placeholder while sync+analysis automation is implemented.
+# Default schedule targets 08:00 local time; adjust in scripts/run_scheduler.py.
 python scripts/run_scheduler.py
 ```
 
 ### 6. Access Dashboard
 
-Open http://localhost:8002/dashboard in your browser to see:
+Open http://localhost:8002/ in your browser to see:
 - Today's AI recommendation
 - Phase 1 Enhanced Recovery Metrics
 - Training readiness score
 - Suggested workout with rationale
+
+## Running Tests
+
+```bash
+source .venv/bin/activate
+PYTHONPATH=. pytest
+
+# Example: focus on readiness suite
+PYTHONPATH=. pytest -k readiness
+```
 
 ## Key Features
 
@@ -83,7 +96,7 @@ Open http://localhost:8002/dashboard in your browser to see:
 - Sleep debt analysis
 
 ### Automated Workflow
-- Daily sync at 7 AM (configurable)
+- Daily sync scaffold (cron or scheduler stub, default 08:00 local time)
 - Token-based authentication (MFA only needed once)
 - Graceful error handling and retry logic
 
@@ -99,7 +112,7 @@ Open http://localhost:8002/dashboard in your browser to see:
 ## Tech Stack
 
 - **Python 3.10+** with FastAPI
-- **garminconnect 0.2.26** - Garmin API client
+- **garminconnect 0.2.30** - Garmin API client
 - **Anthropic Claude API** (claude-sonnet-4-5-20250929)
 - **SQLAlchemy** with SQLite (PostgreSQL ready)
 - **APScheduler** for automated syncing
