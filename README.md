@@ -15,7 +15,7 @@ An intelligent training assistant that analyzes Garmin fitness data using Claude
 - ✅ AI-powered daily readiness analysis (Claude Sonnet 4.5)
 - ✅ Web dashboard with today's recommendation
 - ✅ Historical baselines (30-day) with ACWR and trend analysis
-- 🟡 Scheduler scaffold in place (cron-friendly, APScheduler runner logs placeholder job)
+- ✅ Scheduler job (Garmin sync + AI readiness) via APScheduler (cron-friendly)
 - ✅ HRV baseline tracking and ACWR calculation
 
 ## Quick Start
@@ -57,9 +57,8 @@ python scripts/sync_data.py --mfa-code 123456
 # Terminal 1: Start web server
 uvicorn app.main:app --reload --port 8002
 
-# Terminal 2: Run scheduler scaffold (optional)
-# Current job logs a placeholder while sync+analysis automation is implemented.
-# Default schedule targets 08:00 local time; adjust in scripts/run_scheduler.py.
+# Terminal 2: Run scheduler worker (optional)
+# Executes Garmin sync + readiness analysis at 08:00 local time (configurable).
 python scripts/run_scheduler.py
 ```
 
@@ -96,7 +95,7 @@ PYTHONPATH=. pytest -k readiness
 - Sleep debt analysis
 
 ### Automated Workflow
-- Daily sync scaffold (cron or scheduler stub, default 08:00 local time)
+- Automated daily sync/analysis (scheduler worker or cron, default 08:00 local time)
 - Token-based authentication (MFA only needed once)
 - Graceful error handling and retry logic
 

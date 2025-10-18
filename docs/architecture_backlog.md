@@ -8,7 +8,7 @@ This living document captures post-MVP architecture and reliability work. Use it
 
 Each item is scoped to be tackled in its own branch/PR for ease of review.
 
-1. **Scheduler Integration** — wire `scripts/run_scheduler.py` to execute the Garmin sync + AI readiness analysis outside the web process.
+1. **Scheduler Integration** _(✅ completed)_ — wire `scripts/run_scheduler.py` to execute the Garmin sync + AI readiness analysis outside the web process.
    - Replace the placeholder job with calls into the existing sync/analysis services.
    - Ensure the locking strategy prevents concurrent runs across environments.
    - Add logging around job start/end and failure scenarios.
