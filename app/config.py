@@ -42,6 +42,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    prompt_config_path: Path = Field(default=Path("app/config/prompts.yaml"))
+
     @field_validator("secret_key")
     @classmethod
     def validate_secret_key(cls, value: str) -> str:

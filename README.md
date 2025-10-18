@@ -111,6 +111,7 @@ PYTHONPATH=. pytest -k readiness
 - **Historical Backfill**: `HISTORICAL_DATA_SETUP.md`
 - **Architecture Backlog**: `docs/architecture_backlog.md`
 - **Logging Configuration**: Set `LOG_LEVEL`/`LOG_DIR` in `.env`; runtime logs write to `logs/app.log` and component-specific files.
+- **Prompt Templates**: Adjust `app/config/prompts.yaml` and `app/prompts/` to customize Claude prompt wording and thresholds.
 
 ## Tech Stack
 

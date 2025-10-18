@@ -1,0 +1,44 @@
+HISTORICAL BASELINES (30-day analysis):
+- HRV Analysis:
+  * Current: {hrv_current}ms
+  * 30-day baseline: {hrv_baseline}ms
+  * 7-day average: {hrv_avg_7}ms
+  * Deviation: {hrv_deviation}%
+  * Trend: {hrv_trend}
+  * ⚠️ Concerning: {hrv_flag}
+
+- Resting Heart Rate:
+  * Current: {rhr_current} bpm
+  * Baseline: {rhr_baseline} bpm
+  * Deviation: {rhr_deviation} bpm
+  * ⚠️ Elevated: {rhr_flag}
+
+- Sleep Pattern:
+  * Current: {sleep_current} hours
+  * Baseline: {sleep_baseline} hours
+  * 7-day average: {sleep_avg_7} hours
+  * Weekly sleep debt: {sleep_debt} hours
+  * ⚠️ Sleep deprived: {sleep_flag}
+
+- Training Load (ACWR - Injury Prevention):
+  * Acute load (7 days): {acwr_acute}
+  * Chronic load (28 days): {acwr_chronic}
+  * ACWR Ratio: {acwr_ratio}
+  * Status: {acwr_status}
+  * Injury risk: {acwr_risk}
+  * ⚠️ WARNING: {acwr_warning}
+
+- Training Trends (30 days):
+  * Total activities: {trends_total}
+  * Total distance: {trends_distance}km
+  * Average weekly distance: {trends_weekly_distance}km/week
+  * Consecutive training days: {trends_consecutive} days
+  * ⚠️ No rest days: {trends_rest_flag}
+
+IMPORTANT CONTEXT FROM HISTORICAL DATA:
+* You now have 30 days of baseline data to compare against
+* This allows you to detect deviations from the athlete's NORMAL ranges
+* HRV drop >{hrv_drop_threshold}% from baseline is a major red flag for overtraining/illness
+* Resting HR elevation >{resting_hr_elevated_threshold}bpm suggests incomplete recovery
+* ACWR >{acwr_moderate_threshold} indicates increasing injury risk; >{acwr_high_threshold} is dangerous
+* {no_rest_days_threshold}+ consecutive training days without rest increases overtraining risk

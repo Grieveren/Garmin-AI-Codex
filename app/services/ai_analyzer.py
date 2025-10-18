@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
+import yaml
 from anthropic import Anthropic
 
 from app.config import get_settings
@@ -376,15 +378,19 @@ class AIAnalyzer:
     ) -> str:
         """Build comprehensive prompt for Claude AI."""
 
-        # Extract key metrics
+        settings = get_settings()
+        prompt_config = self._load_prompt_config(settings.prompt_config_path)
+        template = self._load_template(prompt_config["prompt_path"])
+        hist_template = self._load_template(prompt_config["historical_context_path"])
+        thresholds = prompt_config["thresholds"]
+        readiness_thresholds = thresholds["readiness"]
+
         stats = data.get("stats", {})
         sleep_data = data.get("sleep", {})
         hrv_data = data.get("hrv", {})
         hr_data = data.get("heart_rate", {})
         stress_data = data.get("stress", {})
         body_battery_data = data.get("body_battery", {})
-
-        has_history = historical_baselines is not None
 
         # Format sleep info
         sleep_info = "No sleep data available"
@@ -418,7 +424,6 @@ class AIAnalyzer:
         # Format stress info
         stress_info = "No stress data available"
         if stress_data and isinstance(stress_data, list) and stress_data:
-            # Get average stress from recent readings
             stress_values = [s.get("stressLevel", 0) for s in stress_data if isinstance(s, dict)]
             if stress_values:
                 avg_stress = sum(stress_values) / len(stress_values)
@@ -433,14 +438,12 @@ class AIAnalyzer:
                 drained = latest_bb.get("drained", 0)
                 bb_info = f"Charged: +{charged}, Drained: -{drained}"
 
-        # Format enhanced metrics (Phase 1)
         training_readiness_data = data.get("training_readiness", {})
         training_status_data = data.get("training_status", {})
         spo2_data = data.get("spo2", {})
         respiration_data = data.get("respiration", {})
 
         garmin_readiness_info = "Not available"
-        # Training readiness returns a list, uses "score" key
         if training_readiness_data and isinstance(training_readiness_data, list) and len(training_readiness_data) > 0:
             if isinstance(training_readiness_data[0], dict):
                 readiness_score = training_readiness_data[0].get("score")
@@ -454,7 +457,6 @@ class AIAnalyzer:
         vo2_max_info = "Not available"
         training_status_info = "Not available"
         if training_status_data and isinstance(training_status_data, dict):
-            # VO2 Max - nested in mostRecentVO2Max → generic → vo2MaxValue
             if "mostRecentVO2Max" in training_status_data:
                 vo2_data = training_status_data.get("mostRecentVO2Max")
                 if vo2_data and isinstance(vo2_data, dict):
@@ -464,232 +466,135 @@ class AIAnalyzer:
                         if vo2_max:
                             vo2_max_info = f"{vo2_max} ml/kg/min"
 
-            # Training Status - nested in mostRecentTrainingStatus → latestTrainingStatusData → {deviceId}
             if "mostRecentTrainingStatus" in training_status_data:
                 status_data = training_status_data.get("mostRecentTrainingStatus")
                 if status_data and isinstance(status_data, dict):
                     latest = status_data.get("latestTrainingStatusData")
                     if latest and isinstance(latest, dict):
-                        # Get first device's data (usually primary device)
-                        for device_id, device_data in latest.items():
+                        for _, device_data in latest.items():
                             if device_data and isinstance(device_data, dict):
-                                training_status_key = device_data.get("trainingStatusFeedbackPhrase")
-                                if training_status_key:
-                                    training_status_info = training_status_key
+                                training_status_info = device_data.get("trainingStatusFeedbackPhrase") or "Not available"
                                 break
 
         spo2_info = "Not available"
         if spo2_data and isinstance(spo2_data, dict):
-            # Keys are at root level: avgSleepSpO2, lowestSpO2
             avg_spo2 = spo2_data.get("avgSleepSpO2")
             min_spo2 = spo2_data.get("lowestSpO2")
-            if avg_spo2:
+            if avg_spo2 is not None:
                 spo2_info = f"Average: {avg_spo2}%"
-                if min_spo2:
+                if min_spo2 is not None:
                     spo2_info += f", Minimum: {min_spo2}%"
 
         respiration_info = "Not available"
         if respiration_data and isinstance(respiration_data, dict):
-            # Garmin uses avgSleepRespirationValue
             avg_resp = respiration_data.get("avgSleepRespirationValue")
-            if avg_resp:
+            if avg_resp is not None:
                 respiration_info = f"{avg_resp} breaths/min"
 
-        # Format activity summary
-        activity_summary = f"{baselines['activity_count']} activities in last 7 days, "
-        activity_summary += f"{baselines['total_distance_km']}km total, "
-        activity_summary += f"{baselines['total_duration_min']:.0f} min total"
+        activity_summary = ""
+        if isinstance(baselines, dict) and baselines:
+            activity_count = baselines.get("activity_count", 0)
+            total_distance = baselines.get("total_distance_km", 0)
+            total_duration = baselines.get("total_duration_min", 0)
+            activity_summary = (
+                f"{activity_count} activities in last 7 days, "
+                f"{total_distance}km total, "
+                f"{total_duration:.0f} min total"
+            ) if activity_count else "No recent activities synced"
 
-        # Build historical context section
         historical_context = ""
         if historical_baselines:
-            hrv_baseline = historical_baselines["hrv"]
-            rhr_baseline = historical_baselines["resting_hr"]
-            sleep_baseline = historical_baselines["sleep"]
-            acwr = historical_baselines["acwr"]
-            trends = historical_baselines["training_trends"]
+            hrv_baseline = historical_baselines.get("hrv", {})
+            rhr_baseline = historical_baselines.get("resting_hr", {})
+            sleep_baseline = historical_baselines.get("sleep", {})
+            acwr = historical_baselines.get("acwr", {})
+            trends = historical_baselines.get("training_trends", {})
 
             acwr_warning = "Insufficient data"
-            if acwr:
+            acwr_ratio = None
+            if acwr and isinstance(acwr, dict):
                 acwr_ratio = acwr.get("acwr")
                 if acwr_ratio is not None:
-                    if acwr_ratio > 1.5:
-                        acwr_warning = "ACWR >1.5 indicates HIGH INJURY RISK"
+                    if acwr_ratio > thresholds["acwr_high"]:
+                        acwr_warning = f"ACWR >{thresholds['acwr_high']} indicates HIGH INJURY RISK"
+                    elif acwr_ratio > thresholds["acwr_moderate"]:
+                        acwr_warning = "ACWR approaching risk zone"
                     else:
                         acwr_warning = "ACWR in safe zone"
 
-            historical_context = f"""
+            historical_context = hist_template.format(
+                hrv_current=hrv_baseline.get("current_hrv", "N/A"),
+                hrv_baseline=hrv_baseline.get("baseline_hrv", "N/A"),
+                hrv_avg_7=hrv_baseline.get("7_day_avg", "N/A"),
+                hrv_deviation=hrv_baseline.get("deviation_pct", "N/A"),
+                hrv_trend=hrv_baseline.get("trend", "unknown"),
+                hrv_flag="YES - HRV significantly below baseline" if hrv_baseline.get("is_concerning") else "No",
+                rhr_current=rhr_baseline.get("current_rhr", "N/A"),
+                rhr_baseline=rhr_baseline.get("baseline_rhr", "N/A"),
+                rhr_deviation=rhr_baseline.get("deviation_bpm", "N/A"),
+                rhr_flag="YES - possible illness or fatigue" if rhr_baseline.get("is_elevated") else "No",
+                sleep_current=sleep_baseline.get("current_hours", "N/A"),
+                sleep_baseline=sleep_baseline.get("baseline_hours", "N/A"),
+                sleep_avg_7=sleep_baseline.get("7_day_avg", "N/A"),
+                sleep_debt=sleep_baseline.get("sleep_debt_hours", "N/A"),
+                sleep_flag="YES - insufficient sleep" if sleep_baseline.get("is_sleep_deprived") else "No",
+                acwr_acute=acwr.get("acute_load", "N/A"),
+                acwr_chronic=acwr.get("chronic_load", "N/A"),
+                acwr_ratio=acwr.get("acwr", "N/A"),
+                acwr_status=acwr.get("status", "unknown"),
+                acwr_risk=acwr.get("injury_risk", "unknown").upper(),
+                acwr_warning=acwr_warning,
+                trends_total=trends.get("total_activities", 0),
+                trends_distance=trends.get("total_distance_km", 0),
+                trends_weekly_distance=trends.get("avg_weekly_distance", 0),
+                trends_consecutive=trends.get("consecutive_training_days", 0),
+                trends_rest_flag="YES - overtraining risk!" if trends.get("consecutive_training_days", 0) >= thresholds["no_rest_days"] else "No",
+                hrv_drop_threshold=thresholds["hrv_drop_pct"],
+                resting_hr_elevated_threshold=thresholds["resting_hr_elevated_bpm"],
+                acwr_moderate_threshold=thresholds["acwr_moderate"],
+                acwr_high_threshold=thresholds["acwr_high"],
+                no_rest_days_threshold=thresholds["no_rest_days"],
+            )
 
-HISTORICAL BASELINES (30-day analysis):
-- HRV Analysis:
-  * Current: {hrv_baseline.get('current_hrv', 'N/A')}ms
-  * 30-day baseline: {hrv_baseline.get('baseline_hrv', 'N/A')}ms
-  * 7-day average: {hrv_baseline.get('7_day_avg', 'N/A')}ms
-  * Deviation: {hrv_baseline.get('deviation_pct', 'N/A')}%
-  * Trend: {hrv_baseline.get('trend', 'unknown')}
-  * ⚠️ Concerning: {'YES - HRV significantly below baseline' if hrv_baseline.get('is_concerning') else 'No'}
-
-- Resting Heart Rate:
-  * Current: {rhr_baseline.get('current_rhr', 'N/A')} bpm
-  * Baseline: {rhr_baseline.get('baseline_rhr', 'N/A')} bpm
-  * Deviation: {rhr_baseline.get('deviation_bpm', 'N/A')} bpm
-  * ⚠️ Elevated: {'YES - possible illness or fatigue' if rhr_baseline.get('is_elevated') else 'No'}
-
-- Sleep Pattern:
-  * Current: {sleep_baseline.get('current_hours', 'N/A')} hours
-  * Baseline: {sleep_baseline.get('baseline_hours', 'N/A')} hours
-  * 7-day average: {sleep_baseline.get('7_day_avg', 'N/A')} hours
-  * Weekly sleep debt: {sleep_baseline.get('sleep_debt_hours', 'N/A')} hours
-  * ⚠️ Sleep deprived: {'YES - insufficient sleep' if sleep_baseline.get('is_sleep_deprived') else 'No'}
-
-- Training Load (ACWR - Injury Prevention):
-  * Acute load (7 days): {acwr.get('acute_load', 'N/A')}
-  * Chronic load (28 days): {acwr.get('chronic_load', 'N/A')}
-  * ACWR Ratio: {acwr.get('acwr', 'N/A')}
-  * Status: {acwr.get('status', 'unknown')}
-  * Injury risk: {acwr.get('injury_risk', 'unknown').upper()}
-  * ⚠️ WARNING: {acwr_warning}
-
-- Training Trends (30 days):
-  * Total activities: {trends.get('total_activities', 0)}
-  * Total distance: {trends.get('total_distance_km', 0)}km
-  * Average weekly distance: {trends.get('avg_weekly_distance', 0)}km/week
-  * Consecutive training days: {trends.get('consecutive_training_days', 0)} days
-  * ⚠️ No rest days: {'YES - overtraining risk!' if trends.get('consecutive_training_days', 0) >= 7 else 'No'}
-
-IMPORTANT CONTEXT FROM HISTORICAL DATA:
-* You now have 30 days of baseline data to compare against
-* This allows you to detect deviations from the athlete's NORMAL ranges
-* HRV drop >10% from baseline is a major red flag for overtraining/illness
-* Resting HR elevation >5bpm suggests incomplete recovery
-* ACWR >1.3 indicates increasing injury risk; >1.5 is dangerous
-* 7+ consecutive training days without rest increases overtraining risk
-"""
-
-        prompt = f"""You are an expert running coach and sports scientist analyzing an athlete's readiness to train."""
-
-        if historical_baselines:
-            prompt += """
-
-**IMPORTANT: You have access to 30 days of historical baseline data. Use this to provide highly personalized recommendations based on the athlete's ACTUAL normal ranges, not population averages.**
-"""
-
-        prompt += f"""
-
-TODAY'S DATE: {target_date.isoformat()}
-
-ATHLETE'S PHYSIOLOGICAL DATA (Today):
-- Sleep: {sleep_info}
-- HRV (Heart Rate Variability): {hrv_info}
-- Heart Rate: {hr_info}
-- Stress Level: {stress_info}
-- Body Battery: {bb_info}
-- Daily Steps: {stats.get('totalSteps', 'N/A')}
-- Active Calories: {stats.get('activeKilocalories', 'N/A')}
-
-ENHANCED RECOVERY METRICS:
-- Garmin Training Readiness Score: {garmin_readiness_info} (Garmin's AI-powered readiness assessment)
-- VO2 Max Estimate: {vo2_max_info}
-- Training Status: {training_status_info} (productive/maintaining/peaking/overreaching)
-- Blood Oxygen (SPO2): {spo2_info} (sleep average)
-- Respiration Rate: {respiration_info} (elevated = stress/illness/overtraining)
-{historical_context}
-RECENT TRAINING HISTORY (Last 7 days):
-{activity_summary}
-
-TASK:
-Analyze the athlete's readiness to train TODAY and provide:
-1. Readiness score (0-100, where 0=completely exhausted, 100=fully recovered and ready for hard training)
-2. Training recommendation: "high_intensity", "moderate", "easy", or "rest"
-3. Specific workout suggestion with duration, intensity, and heart rate zones
-4. Key factors that influenced your decision (3-5 bullet points)
-5. Any red flags or concerns
-6. Recovery tips (2-3 practical suggestions)
-
-IMPORTANT GUIDELINES:
-- **Use historical baselines when available** - Compare today's metrics to the athlete's 30-day baseline, not population averages
-- HRV drop >10% from PERSONAL baseline = possible illness/overtraining → recommend easy or rest
-- Resting HR >5bpm above PERSONAL baseline = incomplete recovery
-- Sleep <6 hours or below personal average → recommend easy day
-- High stress or low body battery → scale back intensity
-- **ACWR >1.3 = approaching injury risk; >1.5 = HIGH RISK** - recommend reduced volume/intensity
-- 7+ consecutive training days without rest = overtraining risk - MANDATE rest day
-
-**PHASE 1 ENHANCED METRICS - HOW TO USE THEM:**
-- **Garmin Training Readiness Score**: Primary indicator of readiness
-  * <20 = CRITICAL - mandate rest day regardless of other metrics
-  * 20-40 = POOR - strong consideration for rest or very easy day
-  * 40-60 = LOW - recommend easy/recovery day
-  * 60-75 = MODERATE - moderate training appropriate
-  * 75+ = GOOD/EXCELLENT - green light for quality work
-  * **ALWAYS mention this score in your reasoning** - it's Garmin's AI assessment
-
-- **Training Status** (PRODUCTIVE/MAINTAINING/PEAKING/STRAINED/OVERREACHING/UNPRODUCTIVE):
-  * **ALWAYS reference this in ai_reasoning** to contextualize training effectiveness
-  * PRODUCTIVE = training is working, gains are happening
-  * MAINTAINING = holding fitness, no regression
-  * PEAKING = approaching peak form
-  * STRAINED/OVERREACHING = warning signs, reduce volume
-  * UNPRODUCTIVE = detraining or overtraining, intervention needed
-  * Use this to reassure athlete that rest is part of productive training, not a failure
-
-- **VO2 Max**:
-  * **Mention when discussing fitness level or training capacity**
-  * <35 = Low fitness (general population)
-  * 35-45 = Average recreational athlete
-  * 45-55 = Well-trained athlete
-  * 55-65 = Highly trained/competitive
-  * >65 = Elite level
-  * Use this to contextualize the athlete's training capacity and recovery demands
-
-- **SPO2 (Blood Oxygen Saturation)**:
-  * **Reference if <95% average or showing concerning trends**
-  * <95% = potential recovery issue, altitude effect, or respiratory concern
-  * Normal: 95-100%
-  * Combine with respiration rate for respiratory health assessment
-
-- **Respiration Rate**:
-  * **Mention if elevated above baseline or >15 breaths/min**
-  * Normal resting: 8-12 breaths/min
-  * Elevated = possible stress/illness/overtraining
-  * Combine with SPO2 and HRV for comprehensive recovery picture
-
-**CRITICAL: Your ai_reasoning MUST integrate these Phase 1 metrics to provide complete context, not just list problems.**
-
-- Trust the data but acknowledge the athlete should listen to their body
-- Be specific with workout details (duration, intensity, HR zones if available)
-- Prioritize LONG-TERM health and injury prevention over short-term gains
-
-Return your response as a JSON object with this EXACT structure:
-{{
-    "readiness_score": <number 0-100>,
-    "recommendation": "<high_intensity|moderate|easy|rest>",
-    "confidence": "<high|medium|low>",
-    "key_factors": [
-        "Factor 1...",
-        "Factor 2...",
-        "Factor 3..."
-    ],
-    "red_flags": [
-        "Concern 1..."
-    ],
-    "suggested_workout": {{
-        "type": "easy_run|tempo_run|intervals|long_run|rest|etc",
-        "description": "Detailed workout description with structure",
-        "target_duration_minutes": <number>,
-        "intensity": <1-10>,
-        "rationale": "Why this workout today?"
-    }},
-    "recovery_tips": [
-        "Tip 1...",
-        "Tip 2..."
-    ],
-    "ai_reasoning": "Brief explanation of your overall analysis and recommendation"
-}}
-
-Return ONLY the JSON object, no other text."""
+        prompt = template.format(
+            today=target_date.isoformat(),
+            sleep_info=sleep_info,
+            hrv_info=hrv_info,
+            hr_info=hr_info,
+            stress_info=stress_info,
+            body_battery_info=bb_info,
+            daily_steps=stats.get("totalSteps", "N/A"),
+            active_calories=stats.get("activeKilocalories", "N/A"),
+            training_readiness_info=garmin_readiness_info,
+            vo2_max_info=vo2_max_info,
+            training_status_info=training_status_info,
+            spo2_info=spo2_info,
+            respiration_info=respiration_info,
+            historical_context=historical_context,
+            activity_summary=activity_summary,
+            hrv_drop_threshold=thresholds["hrv_drop_pct"],
+            resting_hr_elevated_threshold=thresholds["resting_hr_elevated_bpm"],
+            sleep_hours_threshold=thresholds["sleep_hours_min"],
+            acwr_moderate_threshold=thresholds["acwr_moderate"],
+            acwr_high_threshold=thresholds["acwr_high"],
+            no_rest_days_threshold=thresholds["no_rest_days"],
+            readiness_critical=readiness_thresholds["critical"],
+            readiness_poor=readiness_thresholds["poor"],
+            readiness_low=readiness_thresholds["low"],
+            readiness_moderate=readiness_thresholds["moderate"],
+        )
 
         return prompt
+
+    @staticmethod
+    def _load_template(path: str | Path) -> str:
+        with Path(path).open("r", encoding="utf-8") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _load_prompt_config(path: Path) -> dict[str, Any]:
+        with path.open("r", encoding="utf-8") as fh:
+            return yaml.safe_load(fh)
 
     def _parse_response(self, response_text: str) -> dict[str, Any]:
         """Parse Claude's JSON response into structured format."""

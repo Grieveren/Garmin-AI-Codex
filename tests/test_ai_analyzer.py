@@ -1,6 +1,7 @@
 """Unit tests for AIAnalyzer stub."""
 import json
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +16,7 @@ async def test_analyze_daily_readiness_returns_placeholder(monkeypatch: pytest.M
         garmin_email = "test@example.com"
         garmin_password = "hunter2"
         garmin_token_store = None
+        prompt_config_path = Path("app/config/prompts.yaml")
 
     monkeypatch.setattr("app.services.ai_analyzer.get_settings", lambda: DummySettings())
 
