@@ -55,6 +55,21 @@ Assistant: [Uses debugging-toolkit:debugger agent to diagnose and fix]
 
 **Default behavior: When in doubt, use an agent. Prefer specialized agents over doing tasks yourself.**
 
+### Quick Decision Guide
+
+**Need help choosing which agent to use?**
+
+1. **Writing/changing Python code?** → `python-development:python-pro`
+2. **Building FastAPI endpoints?** → `python-development:fastapi-pro` or `backend-development:backend-architect`
+3. **Finding code/exploring codebase?** → `Explore` agent (specify thoroughness: quick/medium/very thorough)
+4. **Tests failing?** → `debugging-toolkit:debugger`
+5. **Database query slow?** → `database-cloud-optimization:database-optimizer`
+6. **Security concern?** → `comprehensive-review:security-auditor`
+7. **Code review before merge?** → `comprehensive-review:code-reviewer`
+8. **Not sure?** → `general-purpose` agent
+
+**For code reviews:** Use `comprehensive-review:code-reviewer` for general reviews. Use specialized reviewers (`git-pr-workflows:code-reviewer`, `tdd-workflows:code-reviewer`) only when the context is specific to that workflow.
+
 ---
 
 ## Complete Agent Reference
@@ -240,16 +255,12 @@ Assistant: [Uses debugging-toolkit:debugger agent to diagnose and fix]
 
 ### SEO (Not Applicable to This Project)
 
-- `seo-content-creation:seo-content-auditor`
-- `seo-content-creation:seo-content-planner`
-- `seo-content-creation:seo-content-writer`
-- `seo-technical-optimization:seo-keyword-strategist`
-- `seo-technical-optimization:seo-meta-optimizer`
-- `seo-technical-optimization:seo-snippet-hunter`
-- `seo-technical-optimization:seo-structure-architect`
-- `seo-analysis-monitoring:seo-authority-builder`
-- `seo-analysis-monitoring:seo-cannibalization-detector`
-- `seo-analysis-monitoring:seo-content-refresher`
+This project does not require SEO optimization. SEO-related agents are available but not relevant:
+- `seo-content-creation:*` - Content creation and optimization (seo-content-auditor, seo-content-planner, seo-content-writer)
+- `seo-technical-optimization:*` - Technical SEO (seo-keyword-strategist, seo-meta-optimizer, seo-snippet-hunter, seo-structure-architect)
+- `seo-analysis-monitoring:*` - SEO analytics (seo-authority-builder, seo-cannibalization-detector, seo-content-refresher)
+
+*See Claude Code agent documentation for full details if needed for future projects.*
 
 ### Business & Specialized
 
@@ -320,6 +331,34 @@ AI-Powered Training Optimization System that fetches Garmin fitness data, analyz
 - **SQLAlchemy** with SQLite (upgradeable to PostgreSQL)
 - **APScheduler** for automated daily syncing
 - **Pydantic Settings** for configuration management
+
+## Recommended Agents for This Project
+
+Based on the tech stack (FastAPI, Python, SQLAlchemy, Claude AI, Garmin API), these agents are most relevant:
+
+**Primary Development:**
+- `python-development:fastapi-pro` - FastAPI endpoints, routers, async APIs
+- `python-development:python-pro` - General Python code, services, utilities
+- `llm-application-dev:prompt-engineer` - Claude AI prompt optimization
+- `llm-application-dev:ai-engineer` - LLM integration and features
+
+**Database & Performance:**
+- `database-cloud-optimization:database-optimizer` - SQLAlchemy query optimization
+- `database-cloud-optimization:database-architect` - Schema design, migrations
+- `observability-monitoring:performance-engineer` - Performance issues, bottlenecks
+
+**Testing & Quality:**
+- `unit-testing:test-automator` - Pytest test creation and automation
+- `comprehensive-review:code-reviewer` - Pre-merge code reviews
+- `debugging-toolkit:debugger` - Test failures, errors
+
+**Common Task Patterns:**
+- **New API endpoint** → `backend-development:backend-architect`
+- **Garmin API integration issue** → `error-debugging:debugger` or `error-debugging:error-detective`
+- **Database schema change** → `database-cloud-optimization:database-architect`
+- **AI analysis improvement** → `llm-application-dev:prompt-engineer`
+- **Scheduler/cron job issue** → `cicd-automation:devops-troubleshooter`
+- **Query performance** → `database-cloud-optimization:database-optimizer`
 
 ## Common Development Commands
 
