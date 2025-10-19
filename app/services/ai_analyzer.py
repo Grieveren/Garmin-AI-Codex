@@ -28,6 +28,26 @@ class AIAnalyzer:
         self.client = Anthropic(api_key=settings.anthropic_api_key)
         self.model = "claude-sonnet-4-5-20250929"
 
+        # Load activity classification thresholds from config
+        prompt_config = self._load_prompt_config(settings.prompt_config_path)
+        activity_config = prompt_config.get("activity_classification", {})
+
+        # Training effect thresholds
+        te_config = activity_config.get("training_effect", {})
+        self.training_effect_high = te_config.get("high_impact_threshold", 3.0)
+        self.training_effect_moderate = te_config.get("moderate_impact_threshold", 2.5)
+        self.training_effect_very_high = te_config.get("very_high_threshold", 4.0)
+
+        # Heart rate thresholds
+        hr_config = activity_config.get("heart_rate", {})
+        self.hr_zone_threshold = hr_config.get("zone_threshold", 0.7)
+        self.hr_high_intensity = hr_config.get("high_intensity_threshold", 0.85)
+
+        # Duration thresholds
+        duration_config = activity_config.get("duration", {})
+        self.duration_minimum_seconds = duration_config.get("minimum_seconds", 1800)
+        self.duration_long_minutes = duration_config.get("long_duration_minutes", 90)
+
     async def analyze_daily_readiness(
         self,
         target_date: date,
@@ -275,7 +295,36 @@ class AIAnalyzer:
         }
 
     def _calculate_baselines(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Calculate simple baselines from recent activity data."""
+        """Calculate simple baselines from recent activity data with activity type breakdown.
+
+        Args:
+            data: Dictionary containing 'recent_activities' list from Garmin
+
+        Returns:
+            Dictionary with keys:
+                - avg_training_load: Average training load across all activities
+                - activity_count: Total number of activities in period
+                - total_distance_km: Total distance covered (kilometers)
+                - total_duration_min: Total duration (minutes)
+                - activity_breakdown: Dict mapping activity type to stats:
+                    {
+                        "running": {
+                            "count": 3,
+                            "total_duration_min": 150.0,
+                            "total_distance_km": 15.5,
+                            "impact_level": "high",
+                            "avg_hr": 145.0,
+                            "total_training_effect": 12.5
+                        },
+                        ...
+                    }
+
+        Example:
+            >>> data = {"recent_activities": [{"activityType": {"typeKey": "running"}, ...}]}
+            >>> baselines = analyzer._calculate_baselines(data)
+            >>> print(baselines["activity_breakdown"]["running"]["impact_level"])
+            "high"
+        """
 
         activities = data.get("recent_activities", [])
 
@@ -283,8 +332,9 @@ class AIAnalyzer:
             return {
                 "avg_training_load": 0,
                 "activity_count": 0,
-                "total_distance": 0,
-                "total_duration": 0,
+                "total_distance_km": 0,
+                "total_duration_min": 0,
+                "activity_breakdown": {},
             }
 
         # Calculate simple metrics from recent activities
@@ -292,6 +342,9 @@ class AIAnalyzer:
         total_distance = 0
         total_duration = 0
         count = 0
+
+        # Activity type breakdown structure
+        activity_breakdown: dict[str, dict[str, Any]] = {}
 
         for activity in activities:
             if isinstance(activity, dict) and "error" not in activity:
@@ -309,12 +362,268 @@ class AIAnalyzer:
 
                 count += 1
 
+                # Extract activity type and classify impact
+                activity_type = activity.get("activityType", {}).get("typeKey", "unknown")
+                impact_level = self._classify_activity_impact(activity)
+
+                # Aggregate by type
+                if activity_type not in activity_breakdown:
+                    activity_breakdown[activity_type] = {
+                        "count": 0,
+                        "total_duration_min": 0,
+                        "total_distance_km": 0,
+                        "impact_level": impact_level,
+                        "avg_hr": None,
+                        "total_training_effect": 0,
+                    }
+
+                breakdown = activity_breakdown[activity_type]
+                breakdown["count"] += 1
+                breakdown["total_duration_min"] += activity.get("duration", 0) / 60
+                breakdown["total_distance_km"] += activity.get("distance", 0) / 1000
+                breakdown["total_training_effect"] += activity.get("aerobicTrainingEffect", 0)
+
+                # Track average HR if available
+                avg_hr = activity.get("averageHR")
+                if avg_hr:
+                    if breakdown["avg_hr"] is None:
+                        breakdown["avg_hr"] = avg_hr
+                    else:
+                        # Running average - protected against division by zero
+                        current_count = breakdown["count"]
+                        if current_count > 0:
+                            breakdown["avg_hr"] = (breakdown["avg_hr"] * (current_count - 1) + avg_hr) / current_count
+
+        # Division by zero protection
+        avg_training_load = total_load / count if count > 0 else 0
+
         return {
-            "avg_training_load": total_load / max(count, 1),
+            "avg_training_load": avg_training_load,
             "activity_count": count,
             "total_distance_km": round(total_distance, 1),
             "total_duration_min": round(total_duration, 0),
+            "activity_breakdown": activity_breakdown,
         }
+
+    def _classify_activity_impact(self, activity: dict[str, Any]) -> str:
+        """Classify activity impact level based on type, intensity, and training effect.
+
+        Combines multiple signals to determine the musculoskeletal and cardiovascular
+        impact of an activity:
+        - Activity type (e.g., running = high impact, swimming = low impact)
+        - Training effect (aerobic + anaerobic, from Garmin)
+        - Heart rate intensity (% of max HR)
+        - Duration (long sessions increase impact)
+
+        Args:
+            activity: Garmin activity dictionary with fields:
+                - activityType: {"typeKey": "running"}
+                - aerobicTrainingEffect: float (0-5)
+                - anaerobicTrainingEffect: float (0-5)
+                - averageHR: int (bpm)
+                - maxHR: int (bpm)
+                - duration: int (seconds)
+
+        Returns:
+            Impact level: "high", "moderate", or "low"
+            - "high": Running, intervals, plyometrics, or any activity with training effect >4.0
+            - "moderate": Cycling, rowing, strength training
+            - "low": Swimming, stretching, yoga
+
+        Example:
+            >>> activity = {
+            ...     "activityType": {"typeKey": "running"},
+            ...     "aerobicTrainingEffect": 3.2,
+            ...     "averageHR": 155,
+            ...     "maxHR": 180,
+            ...     "duration": 2400
+            ... }
+            >>> impact = analyzer._classify_activity_impact(activity)
+            >>> print(impact)
+            "high"
+        """
+        # Input validation for malformed data
+        if not isinstance(activity, dict):
+            logger.warning(f"Invalid activity data type: {type(activity)}")
+            return "moderate"
+
+        activity_type_obj = activity.get("activityType")
+        if not activity_type_obj or not isinstance(activity_type_obj, dict):
+            logger.warning("Missing or invalid activityType field")
+            return "moderate"
+
+        activity_type = activity_type_obj.get("typeKey", "unknown").lower()
+        training_effect = activity.get("aerobicTrainingEffect", 0)
+        anaerobic_effect = activity.get("anaerobicTrainingEffect", 0)
+        avg_hr = activity.get("averageHR")
+        max_hr = activity.get("maxHR")
+        duration_min = activity.get("duration", 0) / 60
+
+        # High impact activities (plyometric, heavy muscular stress)
+        high_impact_types = {
+            "running", "trail_running", "track_running", "treadmill_running",
+            "track_and_field", "cross_country_running", "speed_training",
+            "hiit", "interval_training", "jump_rope", "plyometrics",
+            "basketball", "tennis", "racquetball", "squash",
+        }
+
+        # Moderate impact activities (some muscular stress but lower impact)
+        moderate_impact_types = {
+            "hiking", "walking", "fitness_walking", "stair_climbing",
+            "elliptical", "rowing", "indoor_rowing", "cycling", "mountain_biking",
+            "gravel_cycling", "road_cycling", "virtual_cycling",
+            "strength_training", "cardio_training", "crossfit",
+            "pilates", "dance",
+        }
+
+        # Low impact activities (minimal joint stress)
+        low_impact_types = {
+            "swimming", "lap_swimming", "open_water_swimming",
+            "stand_up_paddleboarding", "kayaking", "paddling",
+            "stretching", "flexibility_training", "breathwork",
+            "yoga",  # Yoga is low impact
+        }
+
+        # Classify by type first - using exact matching to avoid false positives
+        if activity_type in high_impact_types:
+            base_impact = "high"
+        elif activity_type in moderate_impact_types:
+            base_impact = "moderate"
+        elif activity_type in low_impact_types:
+            base_impact = "low"
+        else:
+            # Default to moderate for unknown types
+            base_impact = "moderate"
+
+        # Adjust based on training effect (overrides type if intensity is clear)
+        total_effect = training_effect + anaerobic_effect
+        if total_effect >= self.training_effect_very_high:
+            return "high"  # Hard session regardless of type
+
+        # Check HR intensity before mid-level training effect adjustments
+        # This allows HR to override when training effect is ambiguous
+        if avg_hr and max_hr:
+            hr_pct = avg_hr / max_hr
+            if hr_pct > self.hr_high_intensity:  # Zone 4-5
+                return "high"
+
+        # Continue with training effect adjustments
+        if total_effect >= self.training_effect_moderate:
+            # Keep base impact or upgrade if low
+            return "high" if base_impact == "high" else "moderate"
+        elif total_effect >= 1.0:
+            # Downgrade if high, keep if moderate/low
+            return "moderate" if base_impact == "high" else base_impact
+
+        # Adjust based on duration (long duration = higher impact)
+        if duration_min > self.duration_long_minutes:
+            if base_impact == "low":
+                return "moderate"
+            return base_impact  # Keep high/moderate
+
+        # Final HR check for zone 3-4
+        if avg_hr and max_hr:
+            hr_pct = avg_hr / max_hr
+            if hr_pct > self.hr_zone_threshold:  # Zone 3-4
+                return "high" if base_impact == "high" else "moderate"
+
+        return base_impact
+
+    def _format_metric(self, value: float, unit: str, decimals: int = 1) -> str:
+        """Format a metric value with unit.
+
+        Args:
+            value: The numeric value to format
+            unit: The unit string (e.g., 'km', 'min', 'bpm')
+            decimals: Number of decimal places (default: 1)
+
+        Returns:
+            Formatted string like "10.5km" or "42min"
+        """
+        return f"{value:.{decimals}f}{unit}"
+
+    def _format_activity_type_breakdown(self, breakdown: dict[str, dict[str, Any]]) -> str:
+        """Format activity breakdown into human-readable summary for AI prompt.
+
+        Groups activities by impact level (high/moderate/low) and formats them
+        with detailed statistics for each activity type.
+
+        Args:
+            breakdown: Dict mapping activity type to statistics:
+                {
+                    "running": {
+                        "count": 3,
+                        "total_duration_min": 150.0,
+                        "total_distance_km": 15.5,
+                        "impact_level": "high",
+                        "avg_hr": 145.0
+                    }
+                }
+
+        Returns:
+            Multi-line formatted string grouped by impact level:
+                HIGH IMPACT:
+                  - Running: 3x, 150min total, 15.5km, avg HR 145 bpm
+                MODERATE IMPACT:
+                  - Cycling: 2x, 120min total, 40.0km, avg HR 130 bpm
+                LOW IMPACT:
+                  - Swimming: 1x, 45min total
+
+        Example:
+            >>> breakdown = {
+            ...     "running": {"count": 2, "total_duration_min": 60, "total_distance_km": 10,
+            ...                 "impact_level": "high", "avg_hr": 150}
+            ... }
+            >>> print(analyzer._format_activity_type_breakdown(breakdown))
+            HIGH IMPACT:
+              - Running: 2x, 60min total, 10.0km, avg HR 150 bpm
+        """
+        if not breakdown:
+            return "No recent activities synced"
+
+        # Group by impact level
+        high_impact: list[tuple[str, dict[str, Any]]] = []
+        moderate_impact: list[tuple[str, dict[str, Any]]] = []
+        low_impact: list[tuple[str, dict[str, Any]]] = []
+
+        for activity_type, stats in breakdown.items():
+            impact = stats.get("impact_level", "moderate")
+            if impact == "high":
+                high_impact.append((activity_type, stats))
+            elif impact == "moderate":
+                moderate_impact.append((activity_type, stats))
+            else:
+                low_impact.append((activity_type, stats))
+
+        # Build formatted summary
+        lines: list[str] = []
+
+        # Helper to format a single activity group
+        def format_group(label: str, activities: list[tuple[str, dict[str, Any]]]) -> None:
+            """Format one impact group (high/moderate/low)."""
+            if not activities:
+                return
+            lines.append(f"{label}:")
+            for activity_type, stats in activities:
+                type_display = activity_type.replace("_", " ").title()
+                count = stats["count"]
+                duration = stats["total_duration_min"]
+                distance = stats["total_distance_km"]
+                avg_hr = stats.get("avg_hr")
+
+                detail = f"  - {type_display}: {count}x, {self._format_metric(duration, 'min', 0)} total"
+                if distance > 0:
+                    detail += f", {self._format_metric(distance, 'km', 1)}"
+                if avg_hr:
+                    detail += f", avg HR {self._format_metric(avg_hr, ' bpm', 0)}"
+                lines.append(detail)
+
+        # Format each impact group
+        format_group("HIGH IMPACT", high_impact)
+        format_group("MODERATE IMPACT", moderate_impact)
+        format_group("LOW IMPACT", low_impact)
+
+        return "\n".join(lines)
 
     def _has_historical_data(self, target_date: date) -> bool:
         """Check if we have historical data in database."""
@@ -537,11 +846,27 @@ class AIAnalyzer:
             activity_count = baselines.get("activity_count", 0)
             total_distance = baselines.get("total_distance_km", 0)
             total_duration = baselines.get("total_duration_min", 0)
-            activity_summary = (
-                f"{activity_count} activities in last 7 days, "
-                f"{total_distance}km total, "
-                f"{total_duration:.0f} min total"
-            ) if activity_count else "No recent activities synced"
+            activity_breakdown = baselines.get("activity_breakdown", {})
+
+            if activity_count:
+                # Use enhanced activity type breakdown if available
+                if activity_breakdown:
+                    breakdown_text = self._format_activity_type_breakdown(activity_breakdown)
+                    activity_summary = (
+                        f"{activity_count} activities in last 7 days, "
+                        f"{total_distance}km total, "
+                        f"{total_duration:.0f} min total\n\n"
+                        f"ACTIVITY TYPE BREAKDOWN:\n{breakdown_text}"
+                    )
+                else:
+                    # Fallback to simple summary
+                    activity_summary = (
+                        f"{activity_count} activities in last 7 days, "
+                        f"{total_distance}km total, "
+                        f"{total_duration:.0f} min total"
+                    )
+            else:
+                activity_summary = "No recent activities synced"
 
         historical_context = ""
         if historical_baselines:

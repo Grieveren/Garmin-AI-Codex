@@ -26,6 +26,25 @@ ADDITIONAL SIGNALS:
 RECENT TRAINING HISTORY (Last 7 days):
 {activity_summary}
 
+**ACTIVITY TYPE INTERPRETATION GUIDE:**
+When analyzing the activity breakdown, consider:
+- **HIGH IMPACT** activities (running, intervals, plyometrics) cause significant musculoskeletal stress and neuromuscular fatigue
+  * Multiple high-impact sessions in quick succession = elevated injury risk
+  * Recovery needs: 48-72 hours between hard sessions for same muscle groups
+  * Red flag: 3+ high-impact sessions in 7 days without adequate recovery markers (HRV >baseline, resting HR <baseline+3 bpm, sleep >7 hours)
+- **MODERATE IMPACT** activities (cycling, rowing, strength training) provide cardiovascular load with less joint stress
+  * Can be performed more frequently but still accumulate fatigue
+  * Useful for active recovery or cross-training between high-impact sessions
+- **LOW IMPACT** activities (swimming, stretching) excellent for recovery while maintaining fitness
+  * Can be performed daily without significant fatigue accumulation
+  * Recommend these when recovery metrics are poor but athlete wants to stay active
+
+**Training Load Distribution Pattern:**
+- Balanced training: Mix of impact levels across the week
+- Unbalanced (high-impact heavy): Higher injury risk, recommend rest or low-impact
+- Unbalanced (low-impact only): May indicate injury/recovery phase or detraining
+- Activity type diversity: Cross-training reduces overuse injury risk
+
 TASK:
 Analyze the athlete's readiness to train TODAY and provide:
 1. Readiness score (0-100, where 0=completely exhausted, 100=fully recovered and ready for hard training)

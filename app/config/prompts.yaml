@@ -23,3 +23,15 @@ thresholds:
   acwr_moderate: 1.3
   acwr_high: 1.5
   no_rest_days: 7
+
+activity_classification:
+  training_effect:
+    high_impact_threshold: 3.0
+    moderate_impact_threshold: 2.5
+    very_high_threshold: 4.0
+  heart_rate:
+    zone_threshold: 0.7
+    high_intensity_threshold: 0.85
+  duration:
+    minimum_seconds: 1800
+    long_duration_minutes: 90
