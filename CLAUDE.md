@@ -2,6 +2,312 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent Usage Policy
+
+**CRITICAL: Use specialized agents proactively for all non-trivial tasks.** Do not attempt complex tasks yourself when agents are available.
+
+### When to Use Agents (ALWAYS):
+
+**Code Implementation & Architecture:**
+- Use `python-development:python-pro` for Python code changes, refactoring, or new features
+- Use `feature-dev:code-architect` for feature planning and architecture design
+- Use `backend-development:backend-architect` for API design and backend architecture
+- Use `comprehensive-review:code-reviewer` after implementing features
+
+**Code Analysis & Exploration:**
+- Use `Explore` agent (with thoroughness level) for codebase exploration and understanding
+- Use `feature-dev:code-explorer` for deep feature analysis and dependency mapping
+- Use `error-debugging:debugger` for debugging errors and failures
+
+**Testing & Quality:**
+- Use `unit-testing:test-automator` for test creation and test coverage
+- Use `debugging-toolkit:debugger` for test failures and unexpected behavior
+
+**Database & Performance:**
+- Use `database-cloud-optimization:database-optimizer` for query optimization
+- Use `observability-monitoring:performance-engineer` for performance issues
+
+**Security & Review:**
+- Use `comprehensive-review:security-auditor` for security audits
+- Use `comprehensive-review:architect-review` for architectural review
+
+### Agent Usage Examples:
+
+```
+User: "Add a new API endpoint for user preferences"
+Assistant: [Uses backend-development:backend-architect agent to design and implement]
+
+User: "Why is this query slow?"
+Assistant: [Uses database-cloud-optimization:database-optimizer agent to analyze]
+
+User: "Find where authentication is handled"
+Assistant: [Uses Explore agent with thoroughness: "medium" to search codebase]
+
+User: "The tests are failing"
+Assistant: [Uses debugging-toolkit:debugger agent to diagnose and fix]
+```
+
+### Do NOT Use Agents For:
+- Simple file reads (use Read tool)
+- Basic grep/glob searches (use Grep/Glob tools directly)
+- Trivial edits (use Edit tool)
+- Health checks and status queries
+
+**Default behavior: When in doubt, use an agent. Prefer specialized agents over doing tasks yourself.**
+
+---
+
+## Complete Agent Reference
+
+### Core Development Agents
+
+**Python Specialists:**
+- `python-development:python-pro` - Python 3.12+, async, performance optimization
+- `python-development:fastapi-pro` - FastAPI, SQLAlchemy 2.0, Pydantic V2, async APIs
+- `python-development:django-pro` - Django 5.x, DRF, Celery, Django Channels
+
+**Backend & API:**
+- `backend-development:backend-architect` - API design, microservices, distributed systems
+- `backend-development:graphql-architect` - GraphQL federation, performance, security
+- `api-scaffolding:backend-architect` - API scaffolding and design
+- `api-scaffolding:fastapi-pro` - FastAPI scaffolding
+- `api-scaffolding:django-pro` - Django API scaffolding
+- `api-scaffolding:graphql-architect` - GraphQL schema design
+- `backend-api-security:backend-architect` - Secure API design
+- `backend-api-security:backend-security-coder` - Backend security implementation
+
+**Frontend & Mobile:**
+- `frontend-mobile-development:frontend-developer` - React 19, Next.js 15
+- `frontend-mobile-development:mobile-developer` - React Native, Flutter, native apps
+- `multi-platform-apps:frontend-developer` - Multi-platform frontend
+- `multi-platform-apps:flutter-expert` - Flutter development
+- `multi-platform-apps:ios-developer` - Native iOS with Swift/SwiftUI
+- `multi-platform-apps:mobile-developer` - Cross-platform mobile
+- `multi-platform-apps:ui-ux-designer` - Design systems, wireframes
+- `frontend-mobile-security:frontend-developer` - Frontend security
+- `frontend-mobile-security:frontend-security-coder` - XSS prevention, sanitization
+- `frontend-mobile-security:mobile-security-coder` - Mobile security patterns
+
+**Other Language Specialists:**
+- `javascript-typescript:javascript-pro` - Modern JavaScript ES6+, async
+- `javascript-typescript:typescript-pro` - TypeScript, advanced types, generics
+- `systems-programming:golang-pro` - Go 1.21+, concurrency, microservices
+- `systems-programming:rust-pro` - Rust 1.75+, async, systems programming
+- `systems-programming:c-pro` - C, memory management, system calls
+- `systems-programming:cpp-pro` - Modern C++, RAII, templates
+- `jvm-languages:java-pro` - Java 21+, Spring Boot 3.x, virtual threads
+- `jvm-languages:scala-pro` - Scala, functional programming, Spark
+- `jvm-languages:csharp-pro` - C#, .NET, async/await
+- `web-scripting:php-pro` - Modern PHP, generators, OOP
+- `web-scripting:ruby-pro` - Ruby, Rails, metaprogramming
+- `functional-programming:elixir-pro` - Elixir, OTP, Phoenix LiveView
+
+### Feature Development & Architecture
+
+**Feature Planning:**
+- `feature-dev:code-architect` - Feature architecture design and blueprints
+- `feature-dev:code-explorer` - Deep feature analysis and dependency mapping
+- `feature-dev:code-reviewer` - Code reviews with confidence-based filtering
+
+**Exploration:**
+- `Explore` - Fast codebase exploration (specify thoroughness: quick/medium/very thorough)
+
+**Architecture Review:**
+- `code-review-ai:architect-review` - Architecture patterns, clean architecture, DDD
+- `comprehensive-review:architect-review` - System design review
+- `framework-migration:architect-review` - Migration architecture
+
+### Testing & Quality
+
+**Testing:**
+- `unit-testing:test-automator` - AI-powered test automation
+- `unit-testing:debugger` - Test failures and debugging
+- `full-stack-orchestration:test-automator` - End-to-end test automation
+- `performance-testing-review:test-automator` - Performance testing
+- `codebase-cleanup:test-automator` - Test coverage improvement
+- `backend-development:tdd-orchestrator` - TDD workflow orchestration
+- `tdd-workflows:tdd-orchestrator` - TDD best practices enforcement
+
+**Code Review:**
+- `comprehensive-review:code-reviewer` - AI-powered code analysis, security, performance
+- `code-documentation:code-reviewer` - Code quality for documentation
+- `git-pr-workflows:code-reviewer` - PR review workflows
+- `tdd-workflows:code-reviewer` - TDD code review
+- `code-refactoring:code-reviewer` - Refactoring review
+- `codebase-cleanup:code-reviewer` - Code cleanup and quality
+
+**Debugging:**
+- `debugging-toolkit:debugger` - Errors, test failures, unexpected behavior
+- `error-debugging:debugger` - Error diagnosis and resolution
+- `error-diagnostics:debugger` - Error pattern analysis
+- `error-debugging:error-detective` - Log analysis, error correlation
+- `error-diagnostics:error-detective` - Stack trace analysis
+
+### Database & Data
+
+**Database Design & Optimization:**
+- `database-design:database-architect` - Data layer design, schema modeling
+- `database-design:sql-pro` - Modern SQL, OLTP/OLAP optimization
+- `database-cloud-optimization:database-architect` - Database architecture
+- `database-cloud-optimization:database-optimizer` - Query optimization, indexing
+- `observability-monitoring:database-optimizer` - Database performance tuning
+- `database-migrations:database-admin` - Database administration, migrations
+- `database-migrations:database-optimizer` - Migration optimization
+
+**Data Engineering:**
+- `data-engineering:backend-architect` - Data backend architecture
+- `data-engineering:data-engineer` - Data pipelines, warehouses, streaming
+- `machine-learning-ops:data-scientist` - Data analysis, ML modeling, statistics
+
+### AI/ML & LLM Development
+
+**LLM Applications:**
+- `llm-application-dev:ai-engineer` - Production LLM apps, RAG systems, agents
+- `llm-application-dev:prompt-engineer` - Prompt engineering, optimization
+
+**Machine Learning:**
+- `machine-learning-ops:ml-engineer` - ML systems, PyTorch, TensorFlow
+- `machine-learning-ops:mlops-engineer` - ML pipelines, MLflow, Kubeflow
+
+### DevOps & Infrastructure
+
+**Cloud Infrastructure:**
+- `cloud-infrastructure:cloud-architect` - AWS/Azure/GCP, multi-cloud, IaC
+- `cloud-infrastructure:deployment-engineer` - CI/CD, GitOps
+- `cloud-infrastructure:hybrid-cloud-architect` - Hybrid/multi-cloud solutions
+- `cloud-infrastructure:kubernetes-architect` - K8s, service mesh, GitOps
+- `cloud-infrastructure:network-engineer` - Cloud networking, security
+- `cloud-infrastructure:terraform-specialist` - Terraform/OpenTofu, IaC
+- `deployment-validation:cloud-architect` - Deployment validation
+
+**Deployment & CI/CD:**
+- `deployment-strategies:deployment-engineer` - Deployment automation, GitOps
+- `deployment-strategies:terraform-specialist` - IaC deployment strategies
+- `full-stack-orchestration:deployment-engineer` - Full-stack deployment
+- `cicd-automation:deployment-engineer` - CI/CD pipeline design
+- `cicd-automation:cloud-architect` - CI/CD cloud architecture
+- `cicd-automation:devops-troubleshooter` - CI/CD debugging
+- `cicd-automation:kubernetes-architect` - K8s CI/CD
+- `cicd-automation:terraform-specialist` - IaC automation
+
+**Kubernetes:**
+- `kubernetes-operations:kubernetes-architect` - K8s architecture, service mesh
+
+**Incident Response:**
+- `incident-response:devops-troubleshooter` - Incident response, debugging
+- `incident-response:incident-responder` - SRE incident management
+
+**Distributed Debugging:**
+- `distributed-debugging:devops-troubleshooter` - Distributed system debugging
+- `distributed-debugging:error-detective` - Distributed error analysis
+
+### Observability & Performance
+
+**Monitoring & Observability:**
+- `observability-monitoring:observability-engineer` - Monitoring, logging, tracing
+- `observability-monitoring:performance-engineer` - Performance optimization, OpenTelemetry
+- `observability-monitoring:network-engineer` - Network monitoring and optimization
+- `application-performance:observability-engineer` - Application observability
+- `application-performance:performance-engineer` - App performance optimization
+- `application-performance:frontend-developer` - Frontend performance
+- `performance-testing-review:performance-engineer` - Performance testing
+
+### Security & Compliance
+
+**Security:**
+- `full-stack-orchestration:security-auditor` - DevSecOps, compliance, security automation
+- `comprehensive-review:security-auditor` - Security audits and compliance
+- `security-scanning:security-auditor` - SAST, vulnerability scanning
+- `security-compliance:security-auditor` - Compliance frameworks
+- `data-validation-suite:backend-security-coder` - Input validation, security
+
+### Documentation
+
+**Documentation Generation:**
+- `documentation-generation:docs-architect` - Technical documentation, architecture guides
+- `documentation-generation:api-documenter` - API documentation, OpenAPI
+- `documentation-generation:tutorial-engineer` - Step-by-step tutorials
+- `documentation-generation:reference-builder` - Technical references
+- `documentation-generation:mermaid-expert` - Diagrams (flowcharts, ERDs, architecture)
+- `api-testing-observability:api-documenter` - API documentation
+
+### Refactoring & Modernization
+
+**Code Refactoring:**
+- `code-refactoring:legacy-modernizer` - Legacy modernization, framework migration
+- `dependency-management:legacy-modernizer` - Dependency updates, technical debt
+- `framework-migration:legacy-modernizer` - Framework migration strategies
+
+### SEO (Not Applicable to This Project)
+
+- `seo-content-creation:seo-content-auditor`
+- `seo-content-creation:seo-content-planner`
+- `seo-content-creation:seo-content-writer`
+- `seo-technical-optimization:seo-keyword-strategist`
+- `seo-technical-optimization:seo-meta-optimizer`
+- `seo-technical-optimization:seo-snippet-hunter`
+- `seo-technical-optimization:seo-structure-architect`
+- `seo-analysis-monitoring:seo-authority-builder`
+- `seo-analysis-monitoring:seo-cannibalization-detector`
+- `seo-analysis-monitoring:seo-content-refresher`
+
+### Business & Specialized
+
+**Business Functions:**
+- `business-analytics:business-analyst` - Business intelligence, KPI frameworks
+- `product-manager` - Product strategy, feature prioritization, roadmaps
+- `project-manager` - Project planning, coordination, tracking
+
+**Team & Collaboration:**
+- `team-collaboration:dx-optimizer` - Developer experience optimization
+- `debugging-toolkit:dx-optimizer` - Tooling and workflow improvement
+
+**HR & Legal:**
+- `hr-legal-compliance:hr-pro` - HR policies, hiring, compliance
+- `hr-legal-compliance:legal-advisor` - Legal documentation, privacy policies
+
+**Marketing & Sales:**
+- `customer-sales-automation:customer-support` - Customer support automation
+- `customer-sales-automation:sales-automator` - Sales outreach automation
+- `content-marketing:content-marketer` - Content marketing strategies
+- `content-marketing:search-specialist` - Web research, competitive analysis
+
+### Specialized Domains
+
+**Blockchain:**
+- `blockchain-web3:blockchain-developer` - Smart contracts, DeFi, NFTs, DAOs
+
+**Finance:**
+- `quantitative-trading:quant-analyst` - Trading strategies, financial models
+- `quantitative-trading:risk-manager` - Risk assessment, portfolio management
+- `payment-processing:payment-integration` - Stripe, PayPal integration
+
+**Game Development:**
+- `game-development:minecraft-bukkit-pro` - Minecraft plugin development
+- `game-development:unity-developer` - Unity games, C# scripts
+
+**Accessibility:**
+- `accessibility-compliance:ui-visual-validator` - UI testing, visual validation
+
+**Agent SDK:**
+- `agent-sdk-dev:agent-sdk-verifier-py` - Python Agent SDK verification
+- `agent-sdk-dev:agent-sdk-verifier-ts` - TypeScript Agent SDK verification
+
+**Microcontrollers:**
+- `arm-cortex-microcontrollers:arm-cortex-expert` - ARM Cortex development
+
+**Context Management:**
+- `agent-orchestration:context-manager` - Multi-agent context orchestration
+- `context-management:context-manager` - AI context engineering
+
+### General Purpose
+
+- `general-purpose` - Multi-step tasks, general research
+- `statusline-setup` - Status line configuration
+- `output-style-setup` - Output style creation
+
+---
+
 ## Project Overview
 
 AI-Powered Training Optimization System that fetches Garmin fitness data, analyzes it using Claude AI, and generates adaptive daily workout recommendations. The system prevents overtraining through intelligent load management and provides personalized coaching based on recovery metrics (HRV, sleep, resting HR).
