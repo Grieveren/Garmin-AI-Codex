@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Training Optimizer - Dashboard</title>
+    <title data-i18n="meta.title">AI Training Optimizer - Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/dashboard.css') }}">
     <script src="{{ url_for('static', path='/js/dashboard.js') }}" defer></script>
 </head>
@@ -11,10 +11,13 @@
     <div class="container">
         <header class="header">
             <div>
-                <h1>🏃 AI Training Optimizer</h1>
+                <h1 data-i18n="header.title">🏃 AI Training Optimizer</h1>
                 <div class="date" id="current-date"></div>
             </div>
             <div class="header-actions">
+                <button class="control-btn" id="language-toggle" type="button" aria-label="Toggle language" data-i18n="button.language">
+                    🇬🇧 English
+                </button>
                 <button class="control-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode">
                     🌙 Dark
                 </button>
@@ -32,19 +35,19 @@
 
         <div id="loading" class="loading">
             <div class="spinner"></div>
-            <p>Analyzing your Garmin data with Claude AI...</p>
+            <p data-i18n="loading.message">Analyzing your Garmin data with Claude AI...</p>
         </div>
 
         <main id="content" class="main-content" style="display: none;">
             <section class="card readiness-card">
                 <div class="readiness-header">
                     <div>
-                        <h2>Today's Readiness</h2>
+                        <h2 data-i18n="readiness.heading">Today's Readiness</h2>
                         <div class="readiness-score" id="readiness-score">--</div>
                         <div class="confidence" id="confidence-badge">Confidence: --</div>
                     </div>
                     <div class="trend-wrapper">
-                        <span class="trend-title">7-day trend</span>
+                        <span class="trend-title" data-i18n="trend.title">7-day trend</span>
                         <div class="trend-chart" id="readiness-trend">
                             <span class="trend-empty">Need more history</span>
                         </div>
@@ -60,46 +63,46 @@
             </section>
 
             <section class="card workout-card">
-                <h2>💪 Suggested Workout</h2>
+                <h2 data-i18n="workout.heading">💪 Suggested Workout</h2>
                 <div class="workout-type" id="workout-type">--</div>
                 <div class="workout-description" id="workout-description">--</div>
                 <div class="workout-meta">
                     <div class="meta-item">
-                        <div class="meta-label">Duration</div>
+                        <div class="meta-label" data-i18n="workout.duration">Duration</div>
                         <div class="meta-value" id="workout-duration">-- min</div>
                     </div>
                     <div class="meta-item">
-                        <div class="meta-label">Intensity</div>
+                        <div class="meta-label" data-i18n="workout.intensity">Intensity</div>
                         <div class="meta-value" id="workout-intensity">-- / 10</div>
                     </div>
                 </div>
                 <div class="workout-description" style="margin-top: 1.2rem; background: rgba(72, 187, 120, 0.12); border-left: 4px solid var(--accent-success);">
-                    <strong>Why this workout?</strong><br>
+                    <strong data-i18n="workout.rationale_heading">Why this workout?</strong><br>
                     <span id="workout-rationale">--</span>
                 </div>
             </section>
 
             <section class="card metrics-card" id="enhanced-metrics-card" style="display: none;">
-                <h2>🔬 Enhanced Recovery Metrics</h2>
+                <h2 data-i18n="enhanced.heading">🔬 Enhanced Recovery Metrics</h2>
                 <div class="enhanced-metrics">
                     <div class="enhanced-metric">
-                        <div class="enhanced-label">Training Readiness</div>
+                        <div class="enhanced-label" data-i18n="enhanced.training_readiness">Training Readiness</div>
                         <div class="enhanced-value" id="garmin-readiness">--</div>
                     </div>
                     <div class="enhanced-metric">
-                        <div class="enhanced-label">VO₂ Max</div>
+                        <div class="enhanced-label" data-i18n="enhanced.vo2_max">VO₂ Max</div>
                         <div class="enhanced-value" id="vo2-max">--</div>
                     </div>
                     <div class="enhanced-metric">
-                        <div class="enhanced-label">Training Status</div>
+                        <div class="enhanced-label" data-i18n="enhanced.training_status">Training Status</div>
                         <div class="enhanced-value" id="training-status">--</div>
                     </div>
                     <div class="enhanced-metric">
-                        <div class="enhanced-label">Blood Oxygen</div>
+                        <div class="enhanced-label" data-i18n="enhanced.spo2">Blood Oxygen</div>
                         <div class="enhanced-value" id="spo2">--</div>
                     </div>
                     <div class="enhanced-metric">
-                        <div class="enhanced-label">Respiration</div>
+                        <div class="enhanced-label" data-i18n="enhanced.respiration">Respiration</div>
                         <div class="enhanced-value" id="respiration">--</div>
                     </div>
                 </div>
@@ -107,22 +110,22 @@
 
             <div class="panel-grid">
                 <section class="card factors-card">
-                    <h2>✅ Key Factors</h2>
+                    <h2 data-i18n="factors.heading">✅ Key Factors</h2>
                     <div id="key-factors"></div>
                 </section>
                 <section class="card tips-card">
-                    <h2>💡 Recovery Tips</h2>
+                    <h2 data-i18n="tips.heading">💡 Recovery Tips</h2>
                     <div id="recovery-tips"></div>
                 </section>
             </div>
 
             <section class="card red-flags-card" id="red-flags-section" style="display: none;">
-                <h2>⚠️ Things to Watch</h2>
+                <h2 data-i18n="red_flags.heading">⚠️ Things to Watch</h2>
                 <div id="red-flags"></div>
             </section>
 
             <section class="card reasoning-card">
-                <h2>🤖 AI Analysis</h2>
+                <h2 data-i18n="analysis.heading">🤖 AI Analysis</h2>
                 <div class="reasoning-text" id="ai-reasoning">--</div>
             </section>
 

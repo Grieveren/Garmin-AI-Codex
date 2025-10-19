@@ -28,7 +28,11 @@ class AIAnalyzer:
         self.client = Anthropic(api_key=settings.anthropic_api_key)
         self.model = "claude-sonnet-4-5-20250929"
 
-    async def analyze_daily_readiness(self, target_date: date) -> dict[str, Any]:
+    async def analyze_daily_readiness(
+        self,
+        target_date: date,
+        locale: str | None = None,
+    ) -> dict[str, Any]:
         """
         Analyze daily training readiness based on live Garmin data.
 
@@ -64,27 +68,33 @@ class AIAnalyzer:
         historical_baselines = self._get_historical_baselines(target_date)
 
         # Build comprehensive prompt
-        prompt = self._build_prompt(
+        language, prompt, system_prompt = self._build_prompt(
             target_date,
             data,
             baselines,
             historical_baselines,
+            locale=locale,
         )
 
         # Get AI analysis
+        request_payload = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system_prompt:
+            request_payload["system"] = system_prompt
+
         try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4096,
-                temperature=0.7,
-                messages=[{"role": "user", "content": prompt}]
-            )
+            response = self.client.messages.create(**request_payload)
         except Exception:
             logger.exception("Claude analysis failed for %s", target_date.isoformat())
             raise
 
         # Parse response
         result = self._parse_response(response.content[0].text)
+        result["language"] = language
         logger.info(
             "Readiness result for %s | score=%s recommendation=%s",
             target_date.isoformat(),
@@ -375,13 +385,17 @@ class AIAnalyzer:
         data: dict[str, Any],
         baselines: dict[str, Any],
         historical_baselines: dict[str, Any] | None,
-    ) -> str:
+        locale: str | None = None,
+    ) -> tuple[str, str, str | None]:
         """Build comprehensive prompt for Claude AI."""
 
         settings = get_settings()
         prompt_config = self._load_prompt_config(settings.prompt_config_path)
         template = self._load_template(prompt_config["prompt_path"])
         hist_template = self._load_template(prompt_config["historical_context_path"])
+        translations = prompt_config.get("translations", {})
+        default_language = str(prompt_config.get("default_language", "en")).lower()
+        language = self._resolve_language(locale, translations, default_language)
         thresholds = prompt_config["thresholds"]
         readiness_thresholds = thresholds["readiness"]
 
@@ -584,7 +598,13 @@ class AIAnalyzer:
             readiness_moderate=readiness_thresholds["moderate"],
         )
 
-        return prompt
+        language_entry = translations.get(language, {})
+        instruction_text = language_entry.get("instruction")
+        system_prompt = instruction_text
+        if instruction_text:
+            prompt = f"{prompt}\n\nLANGUAGE DIRECTIVE:\n{instruction_text}"
+
+        return language, prompt, system_prompt
 
     @staticmethod
     def _load_template(path: str | Path) -> str:
@@ -595,6 +615,34 @@ class AIAnalyzer:
     def _load_prompt_config(path: Path) -> dict[str, Any]:
         with path.open("r", encoding="utf-8") as fh:
             return yaml.safe_load(fh)
+
+    @staticmethod
+    def _resolve_language(
+        locale: str | None,
+        translations: dict[str, Any],
+        default_language: str,
+    ) -> str:
+        """Normalize requested locale to a supported translation key."""
+
+        if locale:
+            normalized = locale.strip().lower().replace("_", "-")
+            candidates = [normalized]
+            if "-" in normalized:
+                candidates.append(normalized.split("-")[0])
+            for candidate in candidates:
+                if candidate in translations:
+                    return candidate
+
+        if default_language in translations:
+            return default_language
+
+        if "en" in translations:
+            return "en"
+
+        if translations:
+            return next(iter(translations))
+
+        return default_language
 
     def _parse_response(self, response_text: str) -> dict[str, Any]:
         """Parse Claude's JSON response into structured format."""

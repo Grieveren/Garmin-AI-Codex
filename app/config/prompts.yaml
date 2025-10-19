@@ -1,6 +1,16 @@
 prompt_path: "app/prompts/readiness_prompt.txt"
 historical_context_path: "app/prompts/historical_context.txt"
 
+default_language: en
+
+translations:
+  en:
+    instruction: >
+      Respond entirely in English. Write concise, actionable explanations while keeping all JSON keys exactly as specified.
+  de:
+    instruction: >
+      Antworte ausschließlich in deutscher Sprache. Formuliere alle erklärenden Texte, Aufzählungen, Tipps und Begründungen auf Deutsch, lasse die JSON-Schlüssel jedoch unverändert in Englisch.
+
 thresholds:
   readiness:
     critical: 20

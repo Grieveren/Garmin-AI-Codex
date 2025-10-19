@@ -66,7 +66,7 @@ async def test_today_endpoint_returns_expected_payload(
 
 @pytest.mark.asyncio
 async def test_date_endpoint_validates_isoformat(monkeypatch: pytest.MonkeyPatch, test_client):
-    async def fake_analyze(self, target_date):
+    async def fake_analyze(self, target_date, locale=None):
         return {"readiness_score": 10}
 
     monkeypatch.setattr(

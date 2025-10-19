@@ -20,7 +20,7 @@ async def test_run_daily_job_invokes_sync_and_analysis(monkeypatch):
         recorded["sync_called"] = True
         return {date.today().isoformat(): {"metrics": "saved", "activities_saved": 1, "activities_skipped": 0}}
 
-    async def fake_analyze(self, target_date: date) -> Dict[str, Any]:
+    async def fake_analyze(self, target_date: date, locale: str | None = None) -> Dict[str, Any]:
         recorded["analyze_target"] = target_date
         return {"readiness_score": 75, "recommendation": "moderate", "confidence": "medium"}
 
@@ -40,7 +40,7 @@ async def test_run_daily_job_stops_when_sync_fails(monkeypatch):
     def fake_sync_failure() -> Dict[str, Dict[str, Any]]:
         raise RuntimeError("boom")
 
-    async def fake_analyze(self, target_date: date) -> Dict[str, Any]:
+    async def fake_analyze(self, target_date: date, locale: str | None = None) -> Dict[str, Any]:
         called["analyze"] = True
         return {}
 
