@@ -41,6 +41,35 @@
       "latestTrainingStatusData": {
         "device1": {"trainingStatusFeedbackPhrase": "PRODUCTIVE"}
       }
+    },
+    "currentRecoveryTime": 14,
+    "loadFocus": [
+      {
+        "focus": "LOW_AEROBIC",
+        "load": 120,
+        "optimalRangeLow": 90,
+        "optimalRangeHigh": 180,
+        "status": "WITHIN"
+      },
+      {
+        "focus": "HIGH_AEROBIC",
+        "load": 210,
+        "optimalRangeLow": 160,
+        "optimalRangeHigh": 260,
+        "status": "OVER"
+      },
+      {
+        "focus": "ANAEROBIC",
+        "load": 35,
+        "optimalRangeLow": 45,
+        "optimalRangeHigh": 85,
+        "status": "UNDER"
+      }
+    ],
+    "heatAndAltitudeAcclimation": {
+      "heatAcclimationValue": 42,
+      "altitudeAcclimationValue": 8,
+      "status": "Heat acclimated"
     }
   },
   "spo2": {
@@ -49,6 +78,13 @@
   },
   "respiration": {
     "avgSleepRespirationValue": 13.8
+  },
+  "hydration": {
+    "summary": {
+      "hydrationGoalInML": 3200,
+      "consumedQuantityInML": 2550,
+      "sweatLossInML": 380
+    }
   },
   "recent_activities": [
     {

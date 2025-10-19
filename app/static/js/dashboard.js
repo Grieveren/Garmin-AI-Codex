@@ -46,6 +46,31 @@ document.addEventListener('DOMContentLoaded', () => {
             'tips.heading': '💡 Recovery Tips',
             'red_flags.heading': '⚠️ Things to Watch',
             'analysis.heading': '🤖 AI Analysis',
+            'extended.heading': '🧭 Additional Signals',
+            'extended.recovery_time': 'Recovery Time',
+            'extended.recovery_time_value': '{hours} h remaining',
+            'extended.recovery_time_ready': 'Ready for high intensity',
+            'extended.hydration': 'Hydration',
+            'extended.hydration_value': '{intake} L of {goal} L goal',
+            'extended.hydration_value_no_goal': '{intake} L consumed',
+            'extended.hydration_note': 'Estimated sweat loss {sweat} L',
+            'extended.load_focus': 'Load Focus',
+            'extended.load_focus_entry': '{label}: {load}',
+            'extended.load_focus_entry_with_range': '{label}: {load} (optimal {low}-{high})',
+            'extended.load_focus_status': 'Status: {status}',
+            'extended.acclimation': 'Heat & Altitude',
+            'extended.acclimation_value': 'Heat {heat}% · Altitude {altitude}%',
+            'extended.acclimation_heat_only': 'Heat {heat}%',
+            'extended.acclimation_alt_only': 'Altitude {altitude}%',
+            'extended.acclimation_status': '{status}',
+            'extended.not_available': 'Not available',
+            'load_focus.low_aerobic': 'Low Aerobic',
+            'load_focus.high_aerobic': 'High Aerobic',
+            'load_focus.anaerobic': 'Anaerobic',
+            'load_focus.balance': 'Balanced',
+            'load_focus_status.within': 'Optimal',
+            'load_focus_status.over': 'High',
+            'load_focus_status.under': 'Low',
             'list.empty': 'No data available.',
             'toast.sync_success': 'Sync successful! Refreshing with latest data...',
             'toast.sync_failure': 'Sync failed: {error}',
@@ -110,6 +135,31 @@ document.addEventListener('DOMContentLoaded', () => {
             'tips.heading': '💡 Erholungstipps',
             'red_flags.heading': '⚠️ Dinge zum Beobachten',
             'analysis.heading': '🤖 KI-Analyse',
+            'extended.heading': '🧭 Zusätzliche Signale',
+            'extended.recovery_time': 'Erholungszeit',
+            'extended.recovery_time_value': '{hours} Std. verbleibend',
+            'extended.recovery_time_ready': 'Bereit für intensive Einheiten',
+            'extended.hydration': 'Hydration',
+            'extended.hydration_value': '{intake} L von {goal} L Ziel',
+            'extended.hydration_value_no_goal': '{intake} L getrunken',
+            'extended.hydration_note': 'Geschätzter Schweißverlust {sweat} L',
+            'extended.load_focus': 'Belastungsfokus',
+            'extended.load_focus_entry': '{label}: {load}',
+            'extended.load_focus_entry_with_range': '{label}: {load} (optimal {low}-{high})',
+            'extended.load_focus_status': 'Status: {status}',
+            'extended.acclimation': 'Hitze & Höhe',
+            'extended.acclimation_value': 'Hitze {heat}% · Höhe {altitude}%',
+            'extended.acclimation_heat_only': 'Hitze {heat}%',
+            'extended.acclimation_alt_only': 'Höhe {altitude}%',
+            'extended.acclimation_status': '{status}',
+            'extended.not_available': 'Nicht verfügbar',
+            'load_focus.low_aerobic': 'Niedrig aerobe Belastung',
+            'load_focus.high_aerobic': 'Hoch aerobe Belastung',
+            'load_focus.anaerobic': 'Anaerobe Belastung',
+            'load_focus.balance': 'Ausgeglichen',
+            'load_focus_status.within': 'Optimal',
+            'load_focus_status.over': 'Zu hoch',
+            'load_focus_status.under': 'Zu niedrig',
             'list.empty': 'Keine Daten verfügbar.',
             'toast.sync_success': 'Synchronisierung erfolgreich! Lade aktuelle Daten ...',
             'toast.sync_failure': 'Synchronisierung fehlgeschlagen: {error}',
@@ -157,8 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let latestRecommendation = null;
-   let lastSyncIso = null;
-   let latestLoadSummary = null;
+    let lastSyncIso = null;
+    let latestLoadSummary = null;
+    let latestExtendedSignals = null;
 
     function getAcceptLanguageHeader(lang = currentLanguage) {
         return ACCEPT_LANGUAGE_HEADERS[lang] ?? lang;
@@ -252,6 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         latestRecommendation = data;
         latestLoadSummary = data.recent_training_load || {};
         lastSyncIso = data.latest_data_sync || data.generated_at || null;
+        latestExtendedSignals = data.extended_signals || null;
 
         const responseLanguage = normalizeLanguageCode(data.language);
         if (responseLanguage && responseLanguage !== currentLanguage) {
@@ -263,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAcwrBadge(latestRecommendation.historical_baselines?.acwr);
         renderReadinessTrend(data.readiness_history);
         updateLastSyncChip(lastSyncIso);
+        renderExtendedSignals(latestExtendedSignals);
     }
 
     function renderRecommendation() {
@@ -452,6 +505,133 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         card.style.display = hasAnyMetric ? 'block' : 'none';
+    }
+
+    function renderExtendedSignals(signals) {
+        const card = document.getElementById('extended-signals-card');
+        if (!card) {
+            return;
+        }
+
+        if (!signals || Object.keys(signals).length === 0) {
+            card.style.display = 'none';
+            return;
+        }
+
+        let hasData = false;
+
+        const badgesContainer = document.getElementById('extended-signal-badges');
+        const loadFocusContainer = document.getElementById('load-focus');
+        if (badgesContainer) {
+            badgesContainer.textContent = '';
+        }
+        if (loadFocusContainer) {
+            loadFocusContainer.textContent = '';
+        }
+
+        const badgeFragments = [];
+
+        const recovery = signals.recovery_time || {};
+        if (typeof recovery.hours === 'number') {
+            const hoursRaw = Math.max(recovery.hours, 0);
+            const formatted = hoursRaw >= 10 ? Math.round(hoursRaw).toString() : (Math.round(hoursRaw * 10) / 10).toString();
+            const label = hoursRaw <= 0.5
+                ? t('extended.recovery_time_ready')
+                : t('extended.recovery_time_value', { hours: formatted });
+            badgeFragments.push({ label: t('extended.recovery_time'), value: label });
+        }
+
+        const hydration = signals.hydration || {};
+        if (typeof hydration.intake_ml === 'number') {
+            const intakeLitres = Math.round((hydration.intake_ml / 1000) * 10) / 10;
+            const intakeText = intakeLitres.toFixed(intakeLitres % 1 === 0 ? 0 : 1);
+            let value;
+            if (typeof hydration.goal_ml === 'number' && hydration.goal_ml > 0) {
+                const goalLitres = Math.round((hydration.goal_ml / 1000) * 10) / 10;
+                const goalText = goalLitres.toFixed(goalLitres % 1 === 0 ? 0 : 1);
+                value = t('extended.hydration_value', { intake: intakeText, goal: goalText });
+            } else {
+                value = t('extended.hydration_value_no_goal', { intake: intakeText });
+            }
+            badgeFragments.push({ label: t('extended.hydration'), value });
+        }
+        if (typeof hydration.sweat_loss_ml === 'number' && hydration.sweat_loss_ml > 0) {
+            const sweatLitres = Math.round((hydration.sweat_loss_ml / 1000) * 10) / 10;
+            const sweatText = sweatLitres.toFixed(sweatLitres % 1 === 0 ? 0 : 1);
+            badgeFragments.push({ label: t('extended.hydration'), value: t('extended.hydration_note', { sweat: sweatText }) });
+        }
+
+        const focusEntries = Array.isArray(signals.load_focus) ? signals.load_focus : [];
+        if (loadFocusContainer) {
+            loadFocusContainer.textContent = '';
+            if (focusEntries.length > 0) {
+                focusEntries.slice(0, 3).forEach((entry) => {
+                    const item = document.createElement('div');
+                    const focusKey = typeof entry.focus === 'string' ? entry.focus.toLowerCase() : '';
+                    const focusLabel = focusKey ? t(`load_focus.${focusKey}`, { _fallback: humanizeLabel(entry.focus) }) : humanizeLabel(entry.focus || t('extended.not_available'));
+                    const loadValue = typeof entry.load === 'number' ? Math.round(entry.load) : null;
+                    const rangeLow = typeof entry.optimal_low === 'number' ? Math.round(entry.optimal_low) : null;
+                    const rangeHigh = typeof entry.optimal_high === 'number' ? Math.round(entry.optimal_high) : null;
+                    const statusKey = entry.status ? entry.status.toLowerCase() : null;
+                    const statusText = statusKey ? t(`load_focus_status.${statusKey}`, { _fallback: humanizeLabel(entry.status) }) : null;
+
+                    let text = focusLabel;
+                    if (loadValue !== null) {
+                        text += ` · ${loadValue}`;
+                    }
+                    if (rangeLow !== null && rangeHigh !== null) {
+                        text += ` (opt ${rangeLow}-${rangeHigh})`;
+                    }
+                    if (statusText) {
+                        text += ` · ${statusText}`;
+                    }
+
+                    item.textContent = text;
+                    loadFocusContainer.appendChild(item);
+                });
+                hasData = true;
+            }
+        }
+
+        const acclimation = signals.acclimation || {};
+        if (typeof acclimation.heat === 'number' || typeof acclimation.altitude === 'number' || acclimation.status) {
+            const heat = typeof acclimation.heat === 'number' ? Math.round(acclimation.heat) : null;
+            const altitude = typeof acclimation.altitude === 'number' ? Math.round(acclimation.altitude) : null;
+
+            let value;
+            if (heat !== null && altitude !== null) {
+                value = t('extended.acclimation_value', { heat, altitude });
+            } else if (heat !== null) {
+                value = t('extended.acclimation_heat_only', { heat });
+            } else if (altitude !== null) {
+                value = t('extended.acclimation_alt_only', { altitude });
+            }
+
+            if (value) {
+                badgeFragments.push({ label: t('extended.acclimation'), value });
+            }
+
+            if (acclimation.status) {
+                badgeFragments.push({ label: t('extended.acclimation'), value: t('extended.acclimation_status', { status: acclimation.status }) });
+            }
+        }
+
+        if (badgeFragments.length > 0 && badgesContainer) {
+            badgeFragments.forEach((fragment) => {
+                const badge = document.createElement('div');
+                badge.className = 'extended-badge';
+                const labelSpan = document.createElement('strong');
+                labelSpan.textContent = fragment.label;
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = fragment.value;
+                badge.appendChild(labelSpan);
+                badge.appendChild(valueSpan);
+                badgesContainer.appendChild(badge);
+            });
+            hasData = true;
+        }
+
+        card.style.display = hasData ? 'block' : 'none';
     }
 
     async function syncData() {
@@ -773,6 +953,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (latestRecommendation) {
             renderRecommendation();
         }
+        renderExtendedSignals(latestExtendedSignals);
 
         if (revalidate) {
             void loadRecommendation();
@@ -829,6 +1010,17 @@ document.addEventListener('DOMContentLoaded', () => {
             month: 'long',
             day: 'numeric',
         });
+    }
+
+    function humanizeLabel(value) {
+        if (value == null) {
+            return '';
+        }
+        return value
+            .toString()
+            .toLowerCase()
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
     }
 
     function t(key, vars = {}) {

@@ -68,7 +68,7 @@ class AIAnalyzer:
         historical_baselines = self._get_historical_baselines(target_date)
 
         # Build comprehensive prompt
-        language, prompt, system_prompt = self._build_prompt(
+        language, prompt, system_prompt, extended_signals = self._build_prompt(
             target_date,
             data,
             baselines,
@@ -161,6 +161,9 @@ class AIAnalyzer:
             "respiration_avg": respiration_avg,
         }
 
+        if extended_signals:
+            result["extended_signals"] = extended_signals
+
         # Attach structured context for UI consumers
         result["recent_training_load"] = baselines
         if historical_baselines:
@@ -235,6 +238,11 @@ class AIAnalyzer:
         except Exception:
             respiration = {}
 
+        try:
+            hydration = garmin._client.get_hydration_data(date_str)
+        except Exception:
+            hydration = {}
+
         # Fetch last 7 days of activities
         activities = []
         try:
@@ -262,6 +270,7 @@ class AIAnalyzer:
             "training_status": training_status,
             "spo2": spo2,
             "respiration": respiration,
+            "hydration": hydration,
             "recent_activities": activities[:7],  # Last 7 days
         }
 
@@ -386,7 +395,7 @@ class AIAnalyzer:
         baselines: dict[str, Any],
         historical_baselines: dict[str, Any] | None,
         locale: str | None = None,
-    ) -> tuple[str, str, str | None]:
+    ) -> tuple[str, str, str | None, dict[str, Any]]:
         """Build comprehensive prompt for Claude AI."""
 
         settings = get_settings()
@@ -505,6 +514,24 @@ class AIAnalyzer:
             if avg_resp is not None:
                 respiration_info = f"{avg_resp} breaths/min"
 
+        extended_signals_for_prompt = self._build_extended_signals(
+            training_status_data,
+            data.get("hydration", {}),
+            training_readiness_data,
+        )
+        recovery_time_info = self._format_recovery_for_prompt(
+            extended_signals_for_prompt.get("recovery_time")
+        )
+        load_focus_info = self._format_load_focus_for_prompt(
+            extended_signals_for_prompt.get("load_focus")
+        )
+        hydration_info = self._format_hydration_for_prompt(
+            extended_signals_for_prompt.get("hydration")
+        )
+        acclimation_info = self._format_acclimation_for_prompt(
+            extended_signals_for_prompt.get("acclimation")
+        )
+
         activity_summary = ""
         if isinstance(baselines, dict) and baselines:
             activity_count = baselines.get("activity_count", 0)
@@ -586,6 +613,10 @@ class AIAnalyzer:
             respiration_info=respiration_info,
             historical_context=historical_context,
             activity_summary=activity_summary,
+            recovery_time_info=recovery_time_info,
+            load_focus_info=load_focus_info,
+            hydration_info=hydration_info,
+            acclimation_info=acclimation_info,
             hrv_drop_threshold=thresholds["hrv_drop_pct"],
             resting_hr_elevated_threshold=thresholds["resting_hr_elevated_bpm"],
             sleep_hours_threshold=thresholds["sleep_hours_min"],
@@ -604,7 +635,7 @@ class AIAnalyzer:
         if instruction_text:
             prompt = f"{prompt}\n\nLANGUAGE DIRECTIVE:\n{instruction_text}"
 
-        return language, prompt, system_prompt
+        return language, prompt, system_prompt, extended_signals_for_prompt
 
     @staticmethod
     def _load_template(path: str | Path) -> str:
@@ -643,6 +674,422 @@ class AIAnalyzer:
             return next(iter(translations))
 
         return default_language
+
+    def _build_extended_signals(
+        self,
+        training_status: dict[str, Any] | list | None,
+        hydration: dict[str, Any] | None,
+        training_readiness: Any,
+    ) -> dict[str, Any]:
+        signals: dict[str, Any] = {}
+
+        recovery = self._parse_recovery_time(training_status, training_readiness)
+        if recovery:
+            signals["recovery_time"] = recovery
+
+        load_focus = self._parse_load_focus(training_status)
+        if load_focus:
+            signals["load_focus"] = load_focus
+
+        acclimation = self._parse_acclimation(training_status)
+        if acclimation:
+            signals["acclimation"] = acclimation
+
+        hydration_summary = self._parse_hydration(hydration)
+        if hydration_summary:
+            signals["hydration"] = hydration_summary
+
+        return signals
+
+    def _parse_recovery_time(self, training_status: Any, training_readiness: Any) -> dict[str, Any] | None:
+        candidate_values: list[tuple[Any, str | None]] = []
+
+        if isinstance(training_status, dict):
+            for key in (
+                "currentRecoveryTime",
+                "recoveryTime",
+                "currentRecoveryTimeInHours",
+                "currentRecoveryTimeInMinutes",
+                "recoveryTimeInHours",
+                "recoveryTimeInMinutes",
+                "currentTrainingStatus",
+                "currentTrainingStatusData",
+            ):
+                value = training_status.get(key)
+                if value is not None:
+                    hint = "minutes" if "minute" in key.lower() else "hours" if "hour" in key.lower() else None
+                    candidate_values.append((value, hint))
+
+        # Garmin sometimes nests recovery time under `currentTrainingStatus` dict
+        if isinstance(training_status, dict):
+            nested = training_status.get("currentTrainingStatus")
+            if isinstance(nested, dict):
+                for sub_key, sub_val in nested.items():
+                    hint = "minutes" if isinstance(sub_key, str) and "minute" in sub_key.lower() else "hours" if isinstance(sub_key, str) and "hour" in sub_key.lower() else None
+                    candidate_values.append((sub_val, hint))
+
+        # Training readiness payload often includes recommended recovery time
+        if isinstance(training_readiness, list):
+            for item in training_readiness:
+                if isinstance(item, dict):
+                    for key in (
+                        "recommendedRecoveryTimeInHours",
+                        "recommendedRecoveryTimeInMinutes",
+                        "recoveryTimeInHours",
+                        "recoveryTimeInMinutes",
+                    ):
+                        value = item.get(key)
+                        if value is not None:
+                            hint = "minutes" if "minute" in key.lower() else "hours" if "hour" in key.lower() else None
+                            candidate_values.append((value, hint))
+        elif isinstance(training_readiness, dict):
+            for key in (
+                "recommendedRecoveryTimeInHours",
+                "recommendedRecoveryTimeInMinutes",
+                "recoveryTimeInHours",
+                "recoveryTimeInMinutes",
+            ):
+                value = training_readiness.get(key)
+                if value is not None:
+                    hint = "minutes" if "minute" in key.lower() else "hours" if "hour" in key.lower() else None
+                    candidate_values.append((value, hint))
+
+        hours = None
+        for value, hint in candidate_values:
+            extracted = self._extract_recovery_hours(value, hint)
+            if extracted is not None:
+                hours = round(float(extracted), 2)
+                break
+
+        note = None
+        if isinstance(training_status, dict):
+            for key, value in training_status.items():
+                if isinstance(value, str) and "recovery" in key.lower():
+                    note = value
+                    break
+        if note is None and isinstance(training_readiness, list):
+            for item in training_readiness:
+                if isinstance(item, dict):
+                    text = item.get("recommendationRecoveryTimeDescription") or item.get("recoveryRecommendation")
+                    if isinstance(text, str):
+                        note = text
+                        break
+
+        if hours is None and note is None:
+            return None
+
+        return {"hours": hours, "note": note}
+
+    def _extract_recovery_hours(self, value: Any, hint: str | None = None) -> float | None:
+        if isinstance(value, (int, float)):
+            hours = float(value)
+            if hint == "minutes":
+                hours /= 60.0
+            return hours
+        if isinstance(value, str):
+            stripped = value.strip().upper()
+            if stripped.endswith("MINUTES"):
+                try:
+                    return float(stripped[:-7]) / 60.0
+                except ValueError:
+                    return None
+            if stripped.endswith("MINS"):
+                try:
+                    return float(stripped[:-4]) / 60.0
+                except ValueError:
+                    return None
+            if stripped.endswith("MIN"):
+                try:
+                    return float(stripped[:-3]) / 60.0
+                except ValueError:
+                    return None
+            if stripped.endswith("M") and not stripped.endswith("MM"):
+                try:
+                    return float(stripped[:-1]) / 60.0
+                except ValueError:
+                    return None
+        if isinstance(value, dict):
+            for key in ("hours", "value", "quantity", "duration"):
+                if key in value:
+                    child_hint = "minutes" if "minute" in key.lower() else "hours" if "hour" in key.lower() else hint
+                    extracted = self._extract_recovery_hours(value[key], child_hint)
+                    if extracted is not None:
+                        return extracted
+        result = self._extract_numeric(value)
+        if result is None:
+            return None
+        if isinstance(value, dict):
+            for minute_key in ("minutes", "mins", "durationminutes"):
+                if minute_key in value:
+                    return result / 60.0
+        if hint == "minutes":
+            return result / 60.0
+        return result
+
+    def _parse_load_focus(self, training_status: Any) -> list[dict[str, Any]] | None:
+        focus_entries = None
+        if isinstance(training_status, dict):
+            focus_entries = training_status.get("loadFocus")
+            if focus_entries is None:
+                focus_entries = training_status.get("trainingLoadFocus")
+
+        if not isinstance(focus_entries, list) or not focus_entries:
+            return None
+
+        parsed: list[dict[str, Any]] = []
+        for entry in focus_entries:
+            if not isinstance(entry, dict):
+                continue
+            focus_type = (
+                entry.get("focus")
+                if entry.get("focus") is not None
+                else entry.get("name")
+                if entry.get("name") is not None
+                else entry.get("label")
+            )
+            load_value = entry.get("load")
+            if load_value is None:
+                load_value = entry.get("value")
+            load_value = self._extract_numeric(load_value)
+            optimal_low = entry.get("optimalRangeLow")
+            if optimal_low is None:
+                optimal_low = entry.get("rangeLow")
+            optimal_low = self._extract_numeric(optimal_low)
+            optimal_high = entry.get("optimalRangeHigh")
+            if optimal_high is None:
+                optimal_high = entry.get("rangeHigh")
+            optimal_high = self._extract_numeric(optimal_high)
+            status = entry.get("status")
+            if status is None:
+                status = entry.get("state")
+            if focus_type is None and load_value is None:
+                continue
+            parsed.append(
+                {
+                    "focus": focus_type,
+                    "load": load_value,
+                    "optimal_low": optimal_low,
+                    "optimal_high": optimal_high,
+                    "status": status,
+                }
+            )
+
+        return parsed or None
+
+    def _parse_acclimation(self, training_status: Any) -> dict[str, Any] | None:
+        if not isinstance(training_status, dict):
+            return None
+
+        acclimation = training_status.get("heatAndAltitudeStatus")
+        if acclimation is None:
+            acclimation = training_status.get("heatAndAltitudeAcclimation")
+        if acclimation is None:
+            acclimation = training_status.get("acclimationStatus")
+
+        if isinstance(acclimation, dict):
+            heat_raw = acclimation.get("heatAcclimationValue")
+            if heat_raw is None:
+                heat_raw = acclimation.get("heatAcclimation")
+            if heat_raw is None:
+                heat_raw = acclimation.get("heat")
+            heat = self._extract_numeric(heat_raw)
+
+            altitude_raw = acclimation.get("altitudeAcclimationValue")
+            if altitude_raw is None:
+                altitude_raw = acclimation.get("altitudeAcclimation")
+            if altitude_raw is None:
+                altitude_raw = acclimation.get("altitude")
+            altitude = self._extract_numeric(altitude_raw)
+
+            status = acclimation.get("status")
+            if status is None:
+                status = acclimation.get("summary")
+            return {
+                "heat": heat,
+                "altitude": altitude,
+                "status": status,
+            }
+
+        return None
+
+    def _parse_hydration(self, hydration: Any) -> dict[str, Any] | None:
+        if not isinstance(hydration, dict):
+            return None
+
+        summary = hydration.get("summary")
+        if not isinstance(summary, dict):
+            summary = hydration
+
+        intake = None
+        goal = None
+        sweat = None
+
+        for key, value in summary.items():
+            if not isinstance(value, (int, float)):
+                continue
+            key_lower = key.lower()
+            if "goal" in key_lower and goal is None:
+                goal = float(value)
+            elif any(term in key_lower for term in ("consumed", "intake", "hydration")) and "goal" not in key_lower:
+                if intake is None:
+                    intake = float(value)
+            elif "sweat" in key_lower and sweat is None:
+                sweat = float(value)
+
+        if intake is None and goal is None and sweat is None:
+            return None
+
+        return {
+            "intake_ml": intake,
+            "goal_ml": goal,
+            "sweat_loss_ml": sweat,
+        }
+
+    def _format_recovery_for_prompt(self, recovery: dict[str, Any] | None) -> str:
+        if not recovery:
+            return "Not available"
+
+        parts: list[str] = []
+        hours = recovery.get("hours")
+        note = recovery.get("note")
+        if isinstance(hours, (int, float)):
+            if hours <= 0.5:
+                parts.append("Ready now")
+            else:
+                parts.append(f"{hours:.1f}h remaining")
+        if isinstance(note, str) and note.strip():
+            parts.append(note.strip())
+
+        return " / ".join(parts) if parts else "Not available"
+
+    def _format_load_focus_for_prompt(self, load_focus: list[dict[str, Any]] | None) -> str:
+        if not load_focus:
+            return "Not available"
+
+        fragments: list[str] = []
+        for entry in load_focus[:3]:
+            focus = self._humanize_label(entry.get("focus"))
+            load = entry.get("load")
+            low = entry.get("optimal_low")
+            high = entry.get("optimal_high")
+            status = entry.get("status")
+
+            if isinstance(load, (int, float)):
+                fragment = f"{focus}: {load:.0f}"
+                if isinstance(low, (int, float)) and isinstance(high, (int, float)):
+                    fragment += f" (opt {low:.0f}-{high:.0f})"
+            else:
+                fragment = focus or "Focus"
+
+            if isinstance(status, str) and status.strip():
+                fragment += f" [{self._humanize_label(status)}]"
+
+            fragments.append(fragment)
+
+        return "; ".join(fragments) if fragments else "Not available"
+
+    def _format_hydration_for_prompt(self, hydration: dict[str, Any] | None) -> str:
+        if not hydration:
+            return "Not available"
+
+        intake = hydration.get("intake_ml")
+        goal = hydration.get("goal_ml")
+        sweat = hydration.get("sweat_loss_ml")
+
+        parts: list[str] = []
+        if isinstance(intake, (int, float)):
+            intake_l = intake / 1000
+            if isinstance(goal, (int, float)) and goal > 0:
+                goal_l = goal / 1000
+                parts.append(f"{intake_l:.1f}L of {goal_l:.1f}L goal")
+            else:
+                parts.append(f"{intake_l:.1f}L consumed")
+
+        if isinstance(sweat, (int, float)) and sweat > 0:
+            parts.append(f"sweat loss {sweat / 1000:.1f}L")
+
+        return "; ".join(parts) if parts else "Not available"
+
+    def _format_acclimation_for_prompt(self, acclimation: dict[str, Any] | None) -> str:
+        if not acclimation:
+            return "Not available"
+
+        heat = acclimation.get("heat")
+        altitude = acclimation.get("altitude")
+        status = acclimation.get("status")
+
+        parts: list[str] = []
+        if isinstance(heat, (int, float)):
+            parts.append(f"heat {heat:.0f}%")
+        if isinstance(altitude, (int, float)):
+            parts.append(f"altitude {altitude:.0f}%")
+        if isinstance(status, str) and status.strip():
+            parts.append(status.strip())
+
+        return " | ".join(parts) if parts else "Not available"
+
+    @staticmethod
+    def _humanize_label(value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value).replace("_", " ").title()
+
+    def _extract_numeric(self, value: Any) -> float | None:
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, dict):
+            for key in ("hours", "value", "current", "duration", "quantity", "sum"):
+                if key in value:
+                    extracted = self._extract_numeric(value[key])
+                    if extracted is not None:
+                        return extracted
+        if isinstance(value, str):
+            stripped = value.strip()
+            upper = stripped.upper()
+            if upper.startswith("PT"):
+                # ISO-8601 duration, extract hours/minutes
+                hours_val = 0.0
+                num = ""
+                for char in upper[2:]:
+                    if char.isdigit() or char == '.':
+                        num += char
+                        continue
+                    if char == 'H' and num:
+                        hours_val += float(num)
+                        num = ""
+                    elif char == 'M' and num:
+                        hours_val += float(num) / 60.0
+                        num = ""
+                    elif char == 'S' and num:
+                        hours_val += float(num) / 3600.0
+                        num = ""
+                if hours_val > 0:
+                    return hours_val
+            if stripped.endswith("MIN") and stripped[:-3].replace('.', '', 1).isdigit():
+                try:
+                    return float(stripped[:-3]) / 60.0
+                except ValueError:
+                    return None
+            if stripped.endswith("h") and stripped[:-1].replace(".", "", 1).isdigit():
+                try:
+                    return float(stripped[:-1])
+                except ValueError:
+                    return None
+            if stripped.endswith("min") and stripped[:-3].replace(".", "", 1).isdigit():
+                try:
+                    return float(stripped[:-3]) / 60.0
+                except ValueError:
+                    return None
+            if stripped.endswith("m") and stripped[:-1].replace(".", "", 1).isdigit():
+                try:
+                    return float(stripped[:-1]) / 60.0
+                except ValueError:
+                    return None
+            try:
+                return float(stripped)
+            except ValueError:
+                return None
+        return None
 
     def _parse_response(self, response_text: str) -> dict[str, Any]:
         """Parse Claude's JSON response into structured format."""

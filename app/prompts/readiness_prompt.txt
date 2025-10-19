@@ -17,6 +17,11 @@ ENHANCED RECOVERY METRICS:
 - Training Status: {training_status_info} (productive/maintaining/peaking/overreaching)
 - Blood Oxygen (SPO2): {spo2_info} (sleep average)
 - Respiration Rate: {respiration_info} (elevated = stress/illness/overtraining)
+ADDITIONAL SIGNALS:
+- Recovery time remaining: {recovery_time_info}
+- Load focus balance: {load_focus_info}
+- Hydration status: {hydration_info}
+- Heat/Altitude acclimation: {acclimation_info}
 {historical_context}
 RECENT TRAINING HISTORY (Last 7 days):
 {activity_summary}

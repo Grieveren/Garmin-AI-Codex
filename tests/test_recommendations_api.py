@@ -62,6 +62,8 @@ async def test_today_endpoint_returns_expected_payload(
     assert payload["recommendation"] == anthropic_fixture["recommendation"]
     assert payload["enhanced_metrics"]["training_readiness_score"] == garmin_fixture["training_readiness"][0]["score"]
     assert payload["latest_data_sync"] == "2025-10-18T06:00:00Z"
+    assert payload["language"] == "en"
+    assert "extended_signals" in payload
 
 
 @pytest.mark.asyncio

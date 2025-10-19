@@ -68,9 +68,31 @@ async def test_analyze_daily_readiness_returns_placeholder(monkeypatch: pytest.M
                         "device123": {"trainingStatusFeedbackPhrase": "PRODUCTIVE"}
                     }
                 },
+                "currentRecoveryTime": 16,
+                "loadFocus": [
+                    {
+                        "focus": "LOW_AEROBIC",
+                        "load": 150,
+                        "optimalRangeLow": 120,
+                        "optimalRangeHigh": 200,
+                        "status": "WITHIN"
+                    }
+                ],
+                "heatAndAltitudeAcclimation": {
+                    "heatAcclimationValue": 30,
+                    "altitudeAcclimationValue": 5,
+                    "status": "Acclimating"
+                },
             },
             "spo2": {"avgSleepSpO2": 96, "lowestSpO2": 92},
             "respiration": {"avgSleepRespirationValue": 14.5},
+            "hydration": {
+                "summary": {
+                    "hydrationGoalInML": 3000,
+                    "consumedQuantityInML": 2400,
+                    "sweatLossInML": 350
+                }
+            },
             "recent_activities": [],
         }
 
@@ -93,3 +115,5 @@ async def test_analyze_daily_readiness_returns_placeholder(monkeypatch: pytest.M
     assert result["recommendation"] == sample_ai_payload["recommendation"]
     assert result["readiness_score"] == sample_ai_payload["readiness_score"]
     assert result["enhanced_metrics"]["training_readiness_score"] == 55
+    assert result["extended_signals"]["recovery_time"]["hours"] == pytest.approx(16)
+    assert result["extended_signals"]["hydration"]["goal_ml"] == 3000
