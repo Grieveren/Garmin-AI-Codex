@@ -28,7 +28,7 @@ Each item is scoped to be tackled in its own branch/PR for ease of review.
    - Provide fixtures for scheduler jobs so they can be invoked inside pytest.
    - Guard against regressions when AI prompt/config changes.
 
-5. **AI Prompt & Config Refactor** — externalize prompt templates and thresholds.
+5. **AI Prompt & Config Refactor** _(✅ completed)_ — externalize prompt templates and thresholds.
    - Store Claude prompts and recommendation thresholds as versioned files/config entries.
    - Load them through a dedicated settings object for easier experimentation.
    - Document the process for updating prompts/models safely.
