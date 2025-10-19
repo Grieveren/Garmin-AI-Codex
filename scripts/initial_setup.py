@@ -1,13 +1,13 @@
 """Initial setup wizard placeholder."""
 from pathlib import Path
 
-from app.database import Base, engine
+from app.database import run_migrations
 
 
 def main() -> None:
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
-    Base.metadata.create_all(bind=engine)
+    run_migrations()
     print("Database initialised at", data_dir)
 
 

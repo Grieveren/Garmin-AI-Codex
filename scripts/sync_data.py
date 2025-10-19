@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.database import SessionLocal, engine, Base
+from app.database import SessionLocal, run_migrations
 from app.logging_config import configure_logging
 from app.models.database_models import DailyMetric, Activity
 from app.services.garmin_service import GarminService
@@ -311,8 +311,8 @@ def main() -> None:
     logger.info("🔄 Syncing Garmin data for %s", target_date)
     logger.info("%s", "=" * 50)
 
-    # Ensure database tables exist
-    Base.metadata.create_all(bind=engine)
+    # Ensure database schema is up to date
+    run_migrations()
 
     # Initialize Garmin service
     if args.verbose:

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.database import SessionLocal, engine, Base
+from app.database import SessionLocal, run_migrations
 from app.models.database_models import DailyMetric, Activity
 from app.services.garmin_service import GarminService
 
@@ -189,11 +189,9 @@ def save_activity(db: Session, activity_data: dict, force: bool = False) -> bool
 
 def main() -> None:
     args = parse_args()
-    settings = get_settings()
-
-    # Create tables
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
+    get_settings()
+    print("Ensuring database schema is up to date...")
+    run_migrations()
 
     # Initialize Garmin service
     print(f"\n🔐 Connecting to Garmin Connect...")

@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.logging_config import configure_logging
@@ -10,6 +11,7 @@ from app.routers import health, manual_sync, recommendations
 configure_logging()
 app = FastAPI(title="Training Optimizer API")
 templates = Jinja2Templates(directory="app/templates")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 @app.get("/", response_class=HTMLResponse, tags=["dashboard"])

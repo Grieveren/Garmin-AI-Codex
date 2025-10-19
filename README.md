@@ -38,12 +38,21 @@ cp .env.example .env
 # - User profile (age, gender, max HR, training goals)
 # - SECRET_KEY (generate a strong value, do not leave blank)
 # - Optional: LOG_LEVEL, LOG_DIR, SCHEDULER_HOUR, SCHEDULER_MINUTE
+# - Optional: DATABASE_URL (set to your PostgreSQL DSN when deploying)
 ```
+
+> ℹ️  If `DATABASE_URL` is omitted, the app defaults to `sqlite:///./data/training_data.db`. PostgreSQL deployments should provide a DSN such as `postgresql+psycopg://user:pass@host:5432/dbname`.
 
 ### 3. Initialize Database
 
 ```bash
 python scripts/initial_setup.py
+```
+
+This command now applies Alembic migrations to the configured database. You can also run them manually with:
+
+```bash
+alembic upgrade head
 ```
 
 ### 4. First Sync (with MFA)

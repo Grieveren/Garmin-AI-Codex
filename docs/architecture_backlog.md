@@ -1,6 +1,6 @@
 # Architecture Backlog
 
-_Last updated: 2025-10-18_
+_Last updated: 2025-02-27_
 
 This living document captures post-MVP architecture and reliability work. Use it to create focused branches/issues and to track progress as items move from planning to done.
 
@@ -33,9 +33,10 @@ Each item is scoped to be tackled in its own branch/PR for ease of review.
    - Load them through a dedicated settings object for easier experimentation.
    - Document the process for updating prompts/models safely.
 
-6. **Persistence & Frontend Follow-up (Optional)** — tackle once the above are stable.
-   - Prepare for PostgreSQL by ensuring migrations cover new fields and transactions are scoped properly.
-   - Consider extracting the dashboard assets (CSS/JS) into a separate static bundle for richer charting/chat work.
+6. **Persistence & Frontend Follow-up** _(✅ completed)_ — foundation for persistence + UI iteration.
+   - Established Alembic migrations and helper utilities so PostgreSQL deployments stay in sync.
+   - Hardened database session handling to ensure commits/rollbacks are scoped per request/job.
+   - Extracted dashboard CSS/JS into the `app/static` bundle to unblock richer visualization work.
 
 ## How to Use This Backlog
 

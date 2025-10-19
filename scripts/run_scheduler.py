@@ -13,7 +13,7 @@ from filelock import FileLock
 
 from app.config import Settings, get_settings
 from app.logging_config import configure_logging
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal, run_migrations
 from app.services.ai_analyzer import AIAnalyzer
 from app.services.garmin_service import GarminService
 from scripts.sync_data import (
@@ -40,8 +40,6 @@ def perform_daily_sync() -> Dict[str, Dict[str, Any]]:
     Returns:
         dict: mapping ISO date -> summary payload with metrics/activities status
     """
-    Base.metadata.create_all(bind=engine)
-
     garmin = GarminService()
     db = SessionLocal()
     summary: Dict[str, Dict[str, Any]] = {}
@@ -135,6 +133,7 @@ async def run_once() -> None:
 async def main(run_now: bool) -> None:
     configure_logging()
     settings = get_settings()
+    run_migrations()
 
     scheduler_log = settings.log_dir / "scheduler.log"
     if not any(isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", "") == str(scheduler_log) for h in logger.handlers):
