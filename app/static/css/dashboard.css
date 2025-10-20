@@ -39,7 +39,7 @@
     --space-2xl: 2.5rem;
 }
 
-.dark-theme {
+body.dark-theme {
     --page-bg: #0f172a;
     --header-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
     --surface: #142146;

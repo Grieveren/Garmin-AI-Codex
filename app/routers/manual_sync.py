@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from app.database import SessionLocal
 from app.models.database_models import DailyMetric, Activity
 from app.services.garmin_service import GarminService
+from app.services.ai_analyzer import AIAnalyzer
 
 
 router = APIRouter(prefix="/manual", tags=["manual"])
@@ -349,6 +350,9 @@ async def sync_now():
             activities_synced += 1
 
         db.commit()
+
+        # Clear AI response cache since we have new data
+        AIAnalyzer.clear_cache()
 
         # Build detailed response
         response_message = []
