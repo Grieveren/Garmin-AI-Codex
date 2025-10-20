@@ -72,6 +72,19 @@ Assistant: [Uses debugging-toolkit:debugger agent to diagnose and fix]
 
 ---
 
+## Response Style
+
+**CRITICAL: Keep responses concise and actionable.**
+
+- Maximum 3-5 sentences for confirmations and status updates
+- Use bullet points instead of paragraphs when listing items
+- Avoid tables unless explicitly requested
+- Skip emojis and decorative formatting
+- Only provide summaries when asked
+- For tool results: state outcome in 1-2 sentences, don't repeat details
+
+---
+
 ## Complete Agent Reference
 
 ### Core Development Agents
