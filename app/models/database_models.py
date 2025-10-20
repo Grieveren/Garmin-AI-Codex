@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for historical data tracking."""
 from datetime import date, datetime
-from sqlalchemy import Integer, Date, DateTime, Float, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Integer, Date, DateTime, Float, String, Boolean, Text, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -86,3 +86,62 @@ class Activity(Base):
     start_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TrainingPlan(Base):
+    """Training plan with periodized structure."""
+
+    __tablename__ = "training_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    goal: Mapped[str] = mapped_column(String(100), nullable=False)  # marathon, 5k, 10k, general_fitness
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    target_date: Mapped[date] = mapped_column(Date, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by_ai: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship
+    workouts: Mapped[list["PlannedWorkout"]] = relationship("PlannedWorkout", back_populates="plan", cascade="all, delete-orphan")
+
+
+class PlannedWorkout(Base):
+    """Individual workout within a training plan."""
+
+    __tablename__ = "planned_workouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_plans.id"), nullable=False, index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+
+    # Workout details
+    workout_type: Mapped[str] = mapped_column(String(50), nullable=False)  # easy_run, intervals, tempo, long_run, rest
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    target_distance_meters: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_heart_rate_zone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    intensity_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-10 scale
+
+    # Completion tracking
+    was_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    actual_activity_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("activities.id"), nullable=True)
+    actual_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actual_distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    completion_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # AI reasoning
+    ai_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    plan: Mapped["TrainingPlan"] = relationship("TrainingPlan", back_populates="workouts")
+    activity: Mapped["Activity | None"] = relationship("Activity", foreign_keys=[actual_activity_id])

@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar, TypedDict
 
 import yaml
 from anthropic import Anthropic
@@ -20,8 +21,21 @@ from app.services.garmin_service import GarminService
 logger = logging.getLogger(__name__)
 
 
+class CacheEntry(TypedDict):
+    """Cache entry with expiration metadata."""
+    data: dict[str, Any]
+    expires_at: datetime
+
+
 class AIAnalyzer:
     """Analyzes training readiness using Claude AI and live Garmin data."""
+
+    # Class-level cache with TTL support (persists across requests within same process)
+    # Thread-safe with lock to prevent race conditions in multi-threaded FastAPI environment
+    _response_cache: ClassVar[dict[tuple[date, str | None], CacheEntry]] = {}
+    _cache_lock: ClassVar[threading.Lock] = threading.Lock()
+    _cache_ttl_minutes: int = 60  # Match frontend cache TTL
+    _max_cache_size: int = 100  # Prevent unbounded memory growth
 
     def __init__(self) -> None:
         settings = get_settings()
@@ -48,6 +62,68 @@ class AIAnalyzer:
         self.duration_minimum_seconds = duration_config.get("minimum_seconds", 1800)
         self.duration_long_minutes = duration_config.get("long_duration_minutes", 90)
 
+    def _get_cached_response(self, cache_key: tuple[date, str | None]) -> dict[str, Any] | None:
+        """Retrieve cached response if valid (not expired). Thread-safe."""
+        with self._cache_lock:
+            if cache_key not in self._response_cache:
+                return None
+
+            entry = self._response_cache[cache_key]
+            if datetime.utcnow() > entry["expires_at"]:
+                # Expired - remove and return None
+                del self._response_cache[cache_key]
+                logger.debug("Cache entry expired for %s (locale=%s)", cache_key[0].isoformat(), cache_key[1] or "default")
+                return None
+
+            return entry["data"]
+
+    def _set_cached_response(self, cache_key: tuple[date, str | None], data: dict[str, Any]) -> None:
+        """Cache response with TTL expiration and size limit enforcement. Thread-safe."""
+        try:
+            should_cleanup = False
+            with self._cache_lock:
+                # Enforce cache size limit (FIFO eviction)
+                if len(self._response_cache) >= self._max_cache_size:
+                    # Remove oldest entry
+                    oldest_key = next(iter(self._response_cache))
+                    del self._response_cache[oldest_key]
+                    logger.debug("Cache full - evicted oldest entry")
+
+                # Store with expiration
+                self._response_cache[cache_key] = {
+                    "data": data,
+                    "expires_at": datetime.utcnow() + timedelta(minutes=self._cache_ttl_minutes)
+                }
+                logger.debug("Cached AI response for %s (locale=%s), expires in %d min",
+                            cache_key[0].isoformat(), cache_key[1] or "default", self._cache_ttl_minutes)
+
+                # Check if cleanup needed (every 10 cache writes)
+                should_cleanup = len(self._response_cache) % 10 == 0
+
+            # Cleanup outside lock to minimize hold time
+            if should_cleanup:
+                self._cleanup_expired_cache()
+        except Exception as e:
+            # Non-fatal - log and continue
+            logger.warning("Failed to cache AI response: %s", e, exc_info=True)
+
+    def _cleanup_expired_cache(self) -> None:
+        """Remove all expired cache entries. Thread-safe."""
+        now = datetime.utcnow()
+        with self._cache_lock:
+            expired_keys = [k for k, v in self._response_cache.items() if now > v["expires_at"]]
+            for key in expired_keys:
+                del self._response_cache[key]
+        if expired_keys:
+            logger.debug("Cleaned up %d expired cache entries", len(expired_keys))
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear all cached responses. Used after manual data sync. Thread-safe."""
+        with cls._cache_lock:
+            cls._response_cache.clear()
+        logger.info("AI response cache cleared")
+
     async def analyze_daily_readiness(
         self,
         target_date: date,
@@ -69,8 +145,15 @@ class AIAnalyzer:
         - Recovery tips
         """
 
+        # Check cache first (key is date + locale)
+        cache_key = (target_date, locale)
+        cached_response = self._get_cached_response(cache_key)
+        if cached_response is not None:
+            logger.info("Cache HIT for %s (locale=%s) - returning cached AI response", target_date.isoformat(), locale or "default")
+            return cached_response
+
         # Fetch live Garmin data
-        logger.info("Starting readiness analysis for %s", target_date.isoformat())
+        logger.info("Cache MISS - Starting readiness analysis for %s (locale=%s)", target_date.isoformat(), locale or "default")
         garmin = GarminService()
         try:
             logger.debug("Fetching Garmin data for %s", target_date.isoformat())
@@ -100,7 +183,7 @@ class AIAnalyzer:
         request_payload = {
             "model": self.model,
             "max_tokens": 4096,
-            "temperature": 0.7,
+            "temperature": 0.3,  # Balance consistency with natural variation
             "messages": [{"role": "user", "content": prompt}],
         }
         if system_prompt:
@@ -198,6 +281,9 @@ class AIAnalyzer:
             result["latest_data_sync"] = latest_sync
 
         result["generated_at"] = datetime.utcnow().isoformat() + "Z"
+
+        # Cache the response with TTL
+        self._set_cached_response(cache_key, result)
 
         return result
 

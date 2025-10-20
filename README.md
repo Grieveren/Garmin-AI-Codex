@@ -2,9 +2,11 @@
 
 An intelligent training assistant that analyzes Garmin fitness data using Claude AI to generate personalized daily workout recommendations. Prevents overtraining through smart load management and recovery tracking.
 
-## ✅ Current Status (Phase 1 & Phase 2 Core - 2025-10-20)
+## ✅ Current Status (Phase 3 Web Interface - 2025-10-20)
 
 **Production-Ready Features:**
+
+**Core Data & AI (Phases 1 & 2):**
 - ✅ Garmin Connect integration with MFA support (token caching)
 - ✅ **Phase 1 Enhanced Metrics** fully implemented:
   - Training Readiness Score (Garmin's AI readiness 0-100)
@@ -12,16 +14,36 @@ An intelligent training assistant that analyzes Garmin fitness data using Claude
   - Training Status (PRODUCTIVE/MAINTAINING/PEAKING/STRAINED)
   - SPO2 (blood oxygen saturation)
   - Respiration Rate
-- ✅ **Phase 2 AI Intelligence** (NEW - 2025-10-19):
+- ✅ **Phase 2 AI Intelligence**:
   - **Activity type differentiation**: High/moderate/low impact classification
   - **Nuanced recovery recommendations**: Yoga-after-run vs run-after-run intelligence
   - **Multi-language support**: English and German recommendations
   - **Externalized prompts**: Easy threshold tuning via YAML config
 - ✅ AI-powered daily readiness analysis (Claude Sonnet 4.5)
-- ✅ **Recommendation-first dashboard** (NEW - 2025-10-20) with responsive design
 - ✅ Historical baselines (30-day) with ACWR and trend analysis
 - ✅ Scheduler job (Garmin sync + AI readiness) via APScheduler (cron-friendly)
 - ✅ HRV baseline tracking and ACWR calculation
+
+**Phase 3 Web Interface (NEW - 2025-10-20):**
+- 🤖 **AI Chat Interface** - Real-time coaching with Claude AI (SSE streaming ready)
+- 📊 **Analytics Dashboard** - 5 interactive Plotly charts:
+  - Readiness trend (30-day visualization)
+  - Training load metrics (ACWR, Fitness, Fatigue, Form)
+  - Sleep-performance correlation
+  - Activity breakdown by type
+  - Recovery metric correlation analysis
+- 📅 **Training Plan Calendar** - Visual workout tracking:
+  - Weekly calendar view with workout cards
+  - Color-coded workouts by type (easy/tempo/intervals/long/rest)
+  - Workout completion tracking with actual metrics
+  - AI-generated periodized training plans
+  - Plan generation form with goal selection (5K, 10K, Half Marathon, Marathon, General Fitness)
+- 🎨 **Site-wide Navigation** - Responsive design with:
+  - Sticky navigation bar with mobile hamburger menu
+  - Active link highlighting
+  - Dark mode support (theme toggle)
+  - Language toggle (EN/DE)
+  - Accessible design with ARIA labels
 
 **📋 Project Roadmap:** See [ROADMAP.md](./ROADMAP.md) for detailed implementation phases, priorities, and future enhancements.
 
@@ -80,13 +102,32 @@ uvicorn app.main:app --reload --port 8002
 python scripts/run_scheduler.py
 ```
 
-### 6. Access Dashboard
+### 6. Access Web Interface
 
-Open http://localhost:8002/ in your browser to see:
-- Today's AI recommendation
+Open http://localhost:8002/ in your browser to access:
+
+**Dashboard (`/`):**
+- Today's AI recommendation with readiness score
 - Phase 1 Enhanced Recovery Metrics
-- Training readiness score
+- Training readiness visualization
 - Suggested workout with rationale
+
+**Analytics (`/insights`):**
+- Interactive Plotly charts for trends and correlations
+- 30-day readiness history
+- Training load analysis (ACWR, Fitness, Fatigue)
+- Sleep-performance insights
+
+**Training Plan (`/training-plan`):**
+- Weekly workout calendar
+- Color-coded workout types
+- Workout completion tracking
+- Generate new AI training plans
+
+**AI Coach (`/chat`):**
+- Real-time conversation with Claude AI
+- Training advice and plan modifications
+- SSE-based streaming responses
 
 ## Running Tests
 

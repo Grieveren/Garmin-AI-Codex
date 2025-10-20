@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.logging_config import configure_logging
-from app.routers import health, manual_sync, recommendations
+from app.routers import analytics, health, manual_sync, recommendations, training_plans
 
 
 configure_logging()
@@ -20,6 +20,24 @@ async def dashboard(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
+@app.get("/chat", response_class=HTMLResponse, tags=["dashboard"])
+async def chat_page(request: Request) -> HTMLResponse:
+    """AI coach chat interface."""
+    return templates.TemplateResponse("chat.html", {"request": request})
+
+
+@app.get("/insights", response_class=HTMLResponse, tags=["dashboard"])
+async def insights_page(request: Request) -> HTMLResponse:
+    """Analytics and insights dashboard with interactive charts."""
+    return templates.TemplateResponse("insights.html", {"request": request})
+
+
+@app.get("/training-plan", response_class=HTMLResponse, tags=["dashboard"])
+async def training_plan_page(request: Request) -> HTMLResponse:
+    """Training plan calendar and management."""
+    return templates.TemplateResponse("training_plan.html", {"request": request})
+
+
 @app.get("/health", tags=["system"])
 async def health_check() -> dict[str, str]:
     """Simple health probe for liveness checks."""
@@ -30,3 +48,5 @@ async def health_check() -> dict[str, str]:
 app.include_router(health.router)
 app.include_router(manual_sync.router)
 app.include_router(recommendations.router)
+app.include_router(analytics.router)
+app.include_router(training_plans.router)

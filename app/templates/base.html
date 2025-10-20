@@ -1,10 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>{{ title or "Training Optimizer" }}</title>
-  </head>
-  <body>
-    {% block content %}{% endblock %}
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Training Optimizer{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/dashboard.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <a href="#main-content" class="skip-link" role="navigation" aria-label="Skip to main content">Skip to main content</a>
+
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="navbar-container">
+            <div class="nav-brand">
+                <a href="/" aria-label="Home - AI Training Optimizer">🏃 AI Training Optimizer</a>
+            </div>
+
+            <button class="nav-toggle" id="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span class="hamburger-icon"></span>
+            </button>
+
+            <div class="nav-content" id="nav-content">
+                <div class="nav-links">
+                    <a href="/" class="nav-link {% if request.url.path == '/' or request.url.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                    <a href="/insights" class="nav-link {% if request.url.path == '/insights' %}active{% endif %}">Analytics</a>
+                    <a href="/training-plan" class="nav-link {% if request.url.path == '/training-plan' %}active{% endif %}">Training Plan</a>
+                    <a href="/chat" class="nav-link {% if request.url.path == '/chat' %}active{% endif %}">AI Coach</a>
+                    <a href="/manual/sync/now" class="nav-link">Sync</a>
+                </div>
+
+                <div class="nav-actions">
+                    <button id="theme-toggle" class="nav-btn" type="button" aria-label="Toggle dark mode">
+                        🌙 Dark
+                    </button>
+                    <button id="language-toggle" class="nav-btn" type="button" aria-label="Toggle language">
+                        🇬🇧 EN
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="main-content" class="main-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2025 AI Training Optimizer · Powered by Claude AI</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', path='/js/cache.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/prefetch.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/base.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
 </html>

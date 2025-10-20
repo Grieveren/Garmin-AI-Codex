@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'button.sync': '⬇️ Sync Data',
             'button.refresh': '🔄 Refresh',
             'loading.message': 'Analyzing your Garmin data with Claude AI...',
-            'readiness.heading': "Today's Readiness",
+            'readiness.heading': "Overall Readiness (AI)",
             'confidence.label': 'Confidence: {value}',
             'trend.title': '7-day trend',
             'trend.need_more': 'Need more history',
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'workout.duration_value': '{minutes} min',
             'workout.intensity_value': '{intensity} / 10',
             'enhanced.heading': '🔬 Enhanced Recovery Metrics',
-            'enhanced.training_readiness': 'Training Readiness',
+            'enhanced.training_readiness': 'Garmin Training Readiness',
             'enhanced.vo2_max': 'VO₂ Max',
             'enhanced.training_status': 'Training Status',
             'enhanced.spo2': 'Blood Oxygen',
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'button.sync': '⬇️ Daten synchronisieren',
             'button.refresh': '🔄 Aktualisieren',
             'loading.message': 'Analysiere deine Garmin-Daten mit Claude AI ...',
-            'readiness.heading': 'Heutige Bereitschaft',
+            'readiness.heading': 'Gesamtbereitschaft (KI)',
             'confidence.label': 'Vertrauen: {value}',
             'trend.title': '7-Tage-Trend',
             'trend.need_more': 'Mehr Verlauf nötig',
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'workout.duration_value': '{minutes} Min.',
             'workout.intensity_value': '{intensity} / 10',
             'enhanced.heading': '🔬 Erweiterte Erholungsmetriken',
-            'enhanced.training_readiness': 'Trainingsbereitschaft',
+            'enhanced.training_readiness': 'Garmin Trainingsbereitschaft',
             'enhanced.vo2_max': 'VO₂max',
             'enhanced.training_status': 'Trainingsstatus',
             'enhanced.spo2': 'Sauerstoffsättigung',
@@ -248,6 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     void loadRecommendation();
     triggerAutoSync();
 
+    // Trigger data prefetch for other pages (after dashboard loads)
+    if (window.dataPrefetcher) {
+        window.dataPrefetcher.initPrefetch();
+    }
+
     async function loadRecommendation() {
         const loadingDiv = document.getElementById('loading');
         const contentDiv = document.getElementById('content');
@@ -267,17 +272,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/recommendations/today', {
+            const data = await window.cachedFetch('/api/recommendations/today', {
+                ttlMinutes: 60,
                 headers: {
-                    'Cache-Control': 'no-cache',
                     'Accept-Language': getAcceptLanguageHeader(),
                 },
             });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
             handleRecommendationData(data);
 
             if (loadingDiv) {
