@@ -5,12 +5,12 @@
     --surface-alt: #eef1ff;
     --text-primary: #1a202c;
     --text-secondary: #4a5568;
-    --muted: #a0aec0;
+    --muted: #5a6778;
     --border-soft: rgba(15, 23, 42, 0.08);
     --accent-primary: #5a67d8;
-    --accent-success: #2f855a;
+    --accent-success: #276749;
     --accent-warning: #dd6b20;
-    --accent-danger: #e53e3e;
+    --accent-danger: #c53030;
     --badge-high: #c6f6d5;
     --badge-high-text: #22543d;
     --badge-moderate: #fef5e7;
@@ -20,6 +20,23 @@
     --badge-rest: #fed7d7;
     --badge-rest-text: #742a2a;
     --card-shadow: 0 18px 38px rgba(15, 23, 42, 0.12);
+
+    /* Typography scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 2rem;
+
+    /* Spacing scale */
+    --space-xs: 0.5rem;
+    --space-sm: 0.75rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 2.5rem;
 }
 
 .dark-theme {
@@ -34,15 +51,15 @@
     --accent-primary: #8891ff;
     --accent-success: #48bb78;
     --accent-warning: #f6ad55;
-    --accent-danger: #f56565;
-    --badge-high: rgba(72, 187, 120, 0.2);
-    --badge-high-text: #c6f6d5;
-    --badge-moderate: rgba(246, 173, 85, 0.2);
-    --badge-moderate-text: #fbd38d;
-    --badge-easy: rgba(99, 179, 237, 0.2);
-    --badge-easy-text: #bee3f8;
-    --badge-rest: rgba(245, 101, 101, 0.2);
-    --badge-rest-text: #fed7d7;
+    --accent-danger: #fc8181;
+    --badge-high: rgba(72, 187, 120, 0.35);
+    --badge-high-text: #a7f3d0;
+    --badge-moderate: rgba(246, 173, 85, 0.35);
+    --badge-moderate-text: #fde68a;
+    --badge-easy: rgba(99, 179, 237, 0.35);
+    --badge-easy-text: #93c5fd;
+    --badge-rest: rgba(245, 101, 101, 0.35);
+    --badge-rest-text: #fecaca;
     --card-shadow: 0 18px 48px rgba(2, 6, 23, 0.6);
 }
 
@@ -50,6 +67,35 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+}
+
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 0;
+    background: var(--accent-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0 0 8px 0;
+    z-index: 9999;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.skip-link:focus {
+    top: 0;
+    animation: fadeInDown 0.3s ease-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        top: -100px;
+        opacity: 0;
+    }
+    to {
+        top: 0;
+        opacity: 1;
+    }
 }
 
 body {
@@ -101,10 +147,10 @@ header.header {
 }
 
 .control-btn {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.25);
     color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    padding: 0.6rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 0.75rem 1.1rem;
     border-radius: 10px;
     cursor: pointer;
     font-size: 0.95rem;
@@ -116,14 +162,29 @@ header.header {
 }
 
 .control-btn:hover {
-    background: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.35);
     transform: translateY(-1px);
 }
 
 .control-btn:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
+    background: rgba(255, 255, 255, 0.08);
     cursor: not-allowed;
     transform: none;
+}
+
+.control-btn:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+}
+
+.control-btn:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.control-btn:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
 }
 
 .control-btn--accent {
@@ -202,8 +263,8 @@ header.header {
 
 .hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
-    gap: 1.75rem;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 2rem;
     align-items: stretch;
 }
 
@@ -281,7 +342,26 @@ header.header {
     padding: 2rem;
     box-shadow: var(--card-shadow);
     border: 1px solid var(--border-soft);
-    transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+    transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+
+.card:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.card:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.card:focus-visible {
+    outline: 3px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 .readiness-card h2 {
@@ -301,22 +381,30 @@ header.header {
     font-size: 4rem;
     font-weight: 700;
     line-height: 1.1;
+    transition: color 0.4s ease, background 0.4s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    display: inline-block;
 }
 
 .score-green {
     color: var(--accent-success);
+    background: transparent;
 }
 
 .score-yellow {
-    color: #ecc94b;
+    color: #d69e2e;
+    background: transparent;
 }
 
 .score-orange {
     color: var(--accent-warning);
+    background: transparent;
 }
 
 .score-red {
     color: var(--accent-danger);
+    background: rgba(197, 48, 48, 0.08);
 }
 
 .confidence {
@@ -347,7 +435,7 @@ header.header {
     flex-direction: column;
     gap: 0.5rem;
     align-items: stretch;
-    min-height: 70px;
+    min-height: 80px;
 }
 
 .trend-empty {
@@ -356,9 +444,33 @@ header.header {
     text-align: center;
 }
 
+.trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.trend-direction {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.trend-direction--down {
+    color: var(--accent-danger);
+}
+
+.trend-direction--up {
+    color: var(--accent-success);
+}
+
 .trend-sparkline {
     width: 100%;
-    height: 48px;
+    height: 60px;
+    cursor: pointer;
 }
 
 .trend-labels {
@@ -366,6 +478,11 @@ header.header {
     justify-content: space-between;
     font-size: 0.8rem;
     color: var(--muted);
+}
+
+.trend-average {
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .recommendation-badge {
@@ -377,6 +494,16 @@ header.header {
     font-weight: 600;
     margin-top: 1.75rem;
     font-size: 1rem;
+    gap: 0.5rem;
+}
+
+.recommendation-badge::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
 }
 
 .badge-high {
@@ -422,12 +549,21 @@ header.header {
     color: var(--accent-success);
 }
 
+.metric-chip--good::before {
+    content: '✓ ';
+    font-weight: 700;
+}
+
 .metric-chip--caution {
     color: var(--accent-warning);
 }
 
 .metric-chip--danger {
     color: var(--accent-danger);
+}
+
+.metric-chip--danger::before {
+    content: '⚠ ';
 }
 
 .workout-card h2,
@@ -497,9 +633,16 @@ header.header {
 .tip-item {
     padding: 1rem;
     border-radius: 12px;
-    line-height: 1.65;
+    line-height: 1.7;
     margin-bottom: 0.85rem;
     border: 1px solid var(--border-soft);
+    font-size: 0.9rem;
+}
+
+.factor-item:first-child,
+.tip-item:first-child {
+    border-left-width: 6px;
+    font-weight: 600;
 }
 
 .factor-item {
@@ -521,8 +664,10 @@ header.header {
     background: var(--surface-alt);
     padding: 1.35rem;
     border-radius: 12px;
-    line-height: 1.75;
+    line-height: 1.8;
     color: var(--text-secondary);
+    max-width: 75ch;
+    font-size: var(--text-base);
 }
 
 .enhanced-metrics {
@@ -644,6 +789,19 @@ header.header {
     border-left-color: var(--accent-danger);
 }
 
+/* Tablet optimization (768px - 900px) */
+@media (max-width: 900px) and (min-width: 768px) {
+    .hero-grid {
+        grid-template-columns: 1fr 0.8fr;
+    }
+
+    .header-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+}
+
+/* Mobile responsive (max-width: 900px) */
 @media (max-width: 900px) {
     body {
         padding: 2rem 1rem;
@@ -665,8 +823,18 @@ header.header {
         padding: 1.75rem;
     }
 
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
     .readiness-score {
         font-size: 3.2rem;
+    }
+
+    .metric-chip {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9rem;
     }
 
     #toast-container {
@@ -679,5 +847,49 @@ header.header {
 
     .toast {
         width: 100%;
+    }
+}
+
+/* Small mobile (<480px) */
+@media (max-width: 480px) {
+    body {
+        padding: 1rem 0.75rem;
+    }
+
+    .header h1 {
+        font-size: 1.5rem;
+    }
+
+    .readiness-score {
+        font-size: 2.5rem;
+    }
+
+    .hero-readiness .readiness-score {
+        font-size: 2.5rem;
+    }
+
+    .control-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem 1.1rem;
+    }
+
+    .hero-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .workout-meta {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Landscape phone optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+    .hero-readiness .readiness-score {
+        font-size: 2rem;
+    }
+
+    .header {
+        padding: 1rem;
     }
 }

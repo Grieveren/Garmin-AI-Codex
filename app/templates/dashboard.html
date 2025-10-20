@@ -8,6 +8,7 @@
     <script src="{{ url_for('static', path='/js/dashboard.js') }}" defer></script>
 </head>
 <body>
+    <a href="#content" class="skip-link" role="navigation" aria-label="Skip to main content">Skip to main content</a>
     <div class="container">
         <header class="header">
             <div>
@@ -67,7 +68,7 @@
                         <div class="confidence" id="confidence-badge">Confidence: --</div>
                         <div class="trend-wrapper">
                             <span class="trend-title" data-i18n="trend.title">7-day trend</span>
-                            <div class="trend-chart" id="readiness-trend">
+                            <div class="trend-chart" id="readiness-trend" aria-label="7-day readiness trend chart">
                                 <span class="trend-empty" data-i18n="trend.need_more">Need more history</span>
                             </div>
                         </div>

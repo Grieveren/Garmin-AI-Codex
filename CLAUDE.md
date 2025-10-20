@@ -72,6 +72,81 @@ Assistant: [Uses debugging-toolkit:debugger agent to diagnose and fix]
 
 ---
 
+## Review Workflow Policy
+
+**CRITICAL: Always initiate reviews after completing work or when agents finish tasks.**
+
+### After I Complete Work:
+
+- **Code changes/implementations** → Launch `comprehensive-review:code-reviewer`
+- **Architecture decisions** → Launch `code-review-ai:architect-review`
+- **Security-sensitive changes** → Launch `comprehensive-review:security-auditor`
+- **Feature implementations** → Launch `feature-dev:code-reviewer`
+- **Database schema changes** → Launch `database-cloud-optimization:database-architect`
+- **Prompt/AI changes** → Launch `llm-application-dev:prompt-engineer`
+
+### After an Agent Completes Work:
+
+- Review agent output for completeness and correctness
+- Verify work addresses original requirements
+- Check for issues or gaps needing follow-up
+- If needed, launch complementary review agent (e.g., security review after code review)
+
+### Review Workflow Benefits:
+
+- Catches issues early before they become problems
+- Ensures code quality and architectural integrity
+- Provides multiple perspectives on solutions
+- Maintains high standards consistently
+
+**This workflow is automatic and mandatory - apply it proactively without user prompting.**
+
+### Workflow Enforcement Checkpoints:
+
+**STOP and use an agent when:**
+1. Task requires 5+ Edit tool calls
+2. Implementing design systems or UI patterns
+3. Making accessibility-sensitive changes
+4. Working on security-critical code
+5. Unsure if task is "trivial" - default to using agent
+
+**STOP and launch review when:**
+1. About to commit code changes
+2. Completed any non-trivial implementation
+3. Agent finishes work
+4. Making changes to user-facing interfaces
+5. Modifying security or accessibility features
+
+**"Trivial" means:**
+- Single typo fix
+- One-line comment addition
+- Variable rename (1-2 occurrences)
+- NOT: Multiple edits, system changes, UI work
+
+### Root Cause Analysis (2025-10-20):
+
+**Policy Violation**: Implemented 197-line UX/accessibility changes without using frontend agent or mandatory code review.
+
+**Root Causes Identified:**
+1. False "simplicity" assessment (CSS feels simple, but 8+ fixes = complex)
+2. Misinterpreted "trivial edits" policy (systematic design != trivial)
+3. Task momentum bias (kept editing instead of stopping after 3-4 edits)
+4. Ignored "automatic and mandatory" language
+
+**Corrective Action Taken:**
+- Launched `comprehensive-review:code-reviewer` → found 4 critical WCAG failures
+- Launched `accessibility-compliance:ui-visual-validator` → verified compliance
+- Fixed all critical issues (contrast, touch targets, focus fallbacks)
+- Committed fixes with proper review evidence
+
+**Lessons Learned:**
+- Multiple edits = Stop and use agent
+- "Mandatory" means no exceptions
+- CSS changes can be just as complex as backend code
+- Review workflow catches real issues (4 critical failures found)
+
+---
+
 ## Response Style
 
 **CRITICAL: Keep responses concise and actionable.**
