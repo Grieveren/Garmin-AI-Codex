@@ -2,7 +2,7 @@
 
 An intelligent training assistant that analyzes Garmin fitness data using Claude AI to generate personalized daily workout recommendations. Prevents overtraining through smart load management and recovery tracking.
 
-## ✅ Current Status (Phase 1 Complete - 2025-10-18)
+## ✅ Current Status (Phase 1 & Phase 2 Core - 2025-10-20)
 
 **Production-Ready Features:**
 - ✅ Garmin Connect integration with MFA support (token caching)
@@ -12,8 +12,13 @@ An intelligent training assistant that analyzes Garmin fitness data using Claude
   - Training Status (PRODUCTIVE/MAINTAINING/PEAKING/STRAINED)
   - SPO2 (blood oxygen saturation)
   - Respiration Rate
+- ✅ **Phase 2 AI Intelligence** (NEW - 2025-10-19):
+  - **Activity type differentiation**: High/moderate/low impact classification
+  - **Nuanced recovery recommendations**: Yoga-after-run vs run-after-run intelligence
+  - **Multi-language support**: English and German recommendations
+  - **Externalized prompts**: Easy threshold tuning via YAML config
 - ✅ AI-powered daily readiness analysis (Claude Sonnet 4.5)
-- ✅ Web dashboard with today's recommendation
+- ✅ **Recommendation-first dashboard** (NEW - 2025-10-20) with responsive design
 - ✅ Historical baselines (30-day) with ACWR and trend analysis
 - ✅ Scheduler job (Garmin sync + AI readiness) via APScheduler (cron-friendly)
 - ✅ HRV baseline tracking and ACWR calculation
@@ -96,8 +101,14 @@ PYTHONPATH=. pytest -k readiness
 ### Daily AI Analysis
 - Analyzes HRV, sleep, resting HR, training load, stress, body battery
 - **NEW**: Integrates Garmin Training Readiness, VO2 Max, Training Status, SPO2, Respiration
+- **Activity Type Intelligence**: Differentiates between high/moderate/low impact activities
+  - High Impact: Intense runs, cycling, training effect ≥3.0, HR zones 4-5 >70%, or >90min duration
+  - Moderate Impact: Mixed intensity workouts, training effect 2.5-3.0
+  - Low Impact: Yoga, stretching, recovery activities, training effect <2.5
+- **Nuanced Recovery**: Recommends yoga after hard run, but flags run-after-run risks
 - Provides personalized recommendation: rest/easy/moderate/high_intensity
 - Explains reasoning and flags overtraining risks
+- **Multi-language**: Full recommendations in English or German (configurable)
 
 ### Smart Recovery Tracking
 - 30-day HRV baseline calculation
@@ -126,9 +137,10 @@ PYTHONPATH=. pytest -k readiness
 
 - **Python 3.10+** with FastAPI
 - **garminconnect 0.2.30** - Garmin API client
-- **Anthropic Claude API** (claude-sonnet-4-5-20250929)
+- **Anthropic Claude API** (claude-sonnet-4-5-20250929) with multi-language support (EN/DE)
 - **SQLAlchemy** with SQLite (PostgreSQL ready)
 - **APScheduler** for automated syncing
+- **YAML-based configuration** for AI prompts, thresholds, and localization
 
 ## Common Commands
 
@@ -145,6 +157,31 @@ python scripts/sync_data.py --date 2025-01-01 --force
 # Run scheduler job immediately (testing)
 python scripts/run_scheduler.py --run-now
 ```
+
+## Configuration & Customization
+
+### AI Prompt Configuration (`app/config/prompts.yaml`)
+
+The system uses externalized configuration for easy tuning without code changes:
+
+- **Thresholds**: HRV drops, ACWR limits, readiness score ranges
+- **Activity Classification**: Training effect thresholds, HR zone thresholds, duration rules
+- **Localization**: Default language and translations (EN/DE)
+- **Prompt Templates**: Located in `app/prompts/` directory
+
+**Example customization:**
+```yaml
+thresholds:
+  hrv_drop_pct: 10        # Alert if HRV drops >10% from baseline
+  acwr_high: 1.5          # Flag high injury risk at ACWR >1.5
+  readiness:
+    critical: 20          # 0-20 = rest day required
+    moderate: 75          # 76-100 = high intensity OK
+
+default_language: de      # Change to German output
+```
+
+See `app/config/prompts.yaml` for all configurable parameters.
 
 ## Phase 1 Enhanced Metrics
 
