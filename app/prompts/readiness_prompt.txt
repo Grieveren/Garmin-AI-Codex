@@ -11,6 +11,15 @@ ATHLETE'S PHYSIOLOGICAL DATA (Today):
 - Daily Steps: {daily_steps}
 - Active Calories: {active_calories}
 
+HEART RATE ZONES (Personalized):
+{hr_zones_info}
+
+**Using HR Zones in Workout Recommendations:**
+- Reference specific zones with bpm ranges in your workout suggestions
+- Example: "Zone 2 run (136-142 bpm) for 45 minutes"
+- Ensure intensity prescriptions align with athlete's actual physiology
+- If zones unavailable, use perceived exertion or pace descriptors
+
 ENHANCED RECOVERY METRICS:
 - Garmin Training Readiness Score: {training_readiness_info} (Garmin's AI-powered readiness assessment)
 - VO2 Max Estimate: {vo2_max_info}

@@ -16,6 +16,7 @@ from app.database import SessionLocal
 from app.models.database_models import DailyMetric
 from app.services.data_processor import DataProcessor
 from app.services.garmin_service import GarminService
+from app.services.hr_zones import calculate_hr_zones, format_hr_zones_for_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,11 @@ class AIAnalyzer:
     _cache_lock: ClassVar[threading.Lock] = threading.Lock()
     _cache_ttl_minutes: int = 60  # Match frontend cache TTL
     _max_cache_size: int = 100  # Prevent unbounded memory growth
+
+    # Issue #3: Personal info cache (age/LTHR change infrequently)
+    _personal_info_cache: ClassVar[dict[str, Any] | None] = None
+    _personal_info_expires_at: ClassVar[datetime | None] = None
+    _PERSONAL_INFO_TTL_HOURS: ClassVar[int] = 24
 
     def __init__(self) -> None:
         settings = get_settings()
@@ -122,7 +128,46 @@ class AIAnalyzer:
         """Clear all cached responses. Used after manual data sync. Thread-safe."""
         with cls._cache_lock:
             cls._response_cache.clear()
-        logger.info("AI response cache cleared")
+            # Also clear personal info cache on manual sync
+            cls._personal_info_cache = None
+            cls._personal_info_expires_at = None
+        logger.info("AI response cache and personal info cache cleared")
+
+    def _fetch_personal_info_cached(self, garmin: GarminService) -> dict[str, Any]:
+        """Fetch personal info with 24h cache (age/LTHR change infrequently).
+
+        Issue #3: Cache personal info to avoid expensive API calls on every analysis.
+
+        Args:
+            garmin: GarminService instance to fetch data from
+
+        Returns:
+            Personal info dictionary with age, max_hr, lactate_threshold_hr
+        """
+        now = datetime.utcnow()
+
+        # Check cache (thread-safe)
+        with self._cache_lock:
+            if (self._personal_info_cache is not None
+                and self._personal_info_expires_at is not None
+                and now < self._personal_info_expires_at):
+                logger.debug("Using cached personal info")
+                return self._personal_info_cache
+
+        # Fetch fresh data (outside lock to avoid blocking)
+        logger.debug("Fetching fresh personal info from Garmin")
+        personal_info = garmin.get_personal_info()
+
+        # Cache if successful (no error key)
+        if personal_info.get("error") is None:
+            with self._cache_lock:
+                self._personal_info_cache = personal_info
+                self._personal_info_expires_at = now + timedelta(hours=self._PERSONAL_INFO_TTL_HOURS)
+            logger.info("Cached personal info for %dh", self._PERSONAL_INFO_TTL_HOURS)
+        else:
+            logger.warning("Personal info fetch failed, not caching: %s", personal_info.get("error"))
+
+        return personal_info
 
     async def analyze_daily_readiness(
         self,
@@ -159,6 +204,10 @@ class AIAnalyzer:
             logger.debug("Fetching Garmin data for %s", target_date.isoformat())
             garmin.login()
             data = self._fetch_garmin_data(garmin, target_date)
+
+            # Fetch personal info and calculate HR zones (Issue #3: using cached version)
+            personal_info = self._fetch_personal_info_cached(garmin)
+            hr_zones = self._calculate_hr_zones(personal_info)
         finally:
             try:
                 garmin.logout()
@@ -170,12 +219,13 @@ class AIAnalyzer:
         baselines = self._calculate_baselines(data)
         historical_baselines = self._get_historical_baselines(target_date)
 
-        # Build comprehensive prompt
+        # Build comprehensive prompt with HR zones
         language, prompt, system_prompt, extended_signals = self._build_prompt(
             target_date,
             data,
             baselines,
             historical_baselines,
+            hr_zones=hr_zones,
             locale=locale,
         )
 
@@ -783,12 +833,48 @@ class AIAnalyzer:
         finally:
             db.close()
 
+    def _calculate_hr_zones(
+        self,
+        personal_info: dict[str, Any],
+    ) -> dict[str, dict[str, int | str]] | None:
+        """
+        Calculate HR zones from personal information.
+
+        Args:
+            personal_info: Dictionary from GarminService.get_personal_info()
+
+        Returns:
+            HR zones dict or None if calculation fails
+        """
+        try:
+            lactate_threshold_hr = personal_info.get("lactate_threshold_hr")
+            max_hr = personal_info.get("max_hr")
+            age = personal_info.get("age")
+
+            # Skip if we have no data at all
+            if lactate_threshold_hr is None and max_hr is None and age is None:
+                logger.warning("No personal info available for HR zone calculation")
+                return None
+
+            zones = calculate_hr_zones(
+                lactate_threshold_hr=lactate_threshold_hr,
+                max_hr=max_hr,
+                age=age,
+            )
+
+            return zones
+
+        except Exception as err:
+            logger.exception("Failed to calculate HR zones: %s", err)
+            return None
+
     def _build_prompt(
         self,
         target_date: date,
         data: dict[str, Any],
         baselines: dict[str, Any],
         historical_baselines: dict[str, Any] | None,
+        hr_zones: dict[str, dict[str, int | str]] | None = None,
         locale: str | None = None,
     ) -> tuple[str, str, str | None, dict[str, Any]]:
         """Build comprehensive prompt for Claude AI."""
@@ -927,6 +1013,12 @@ class AIAnalyzer:
             extended_signals_for_prompt.get("acclimation")
         )
 
+        # Format HR zones for prompt
+        hr_zones_info = "Not available"
+        if hr_zones is not None:
+            hr_zones_info = format_hr_zones_for_prompt(hr_zones)
+            logger.debug("HR zones calculated and formatted for prompt")
+
         activity_summary = ""
         if isinstance(baselines, dict) and baselines:
             activity_count = baselines.get("activity_count", 0)
@@ -1022,6 +1114,7 @@ class AIAnalyzer:
             training_status_info=training_status_info,
             spo2_info=spo2_info,
             respiration_info=respiration_info,
+            hr_zones_info=hr_zones_info,
             historical_context=historical_context,
             activity_summary=activity_summary,
             recovery_time_info=recovery_time_info,

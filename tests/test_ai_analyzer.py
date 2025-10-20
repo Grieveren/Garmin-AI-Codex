@@ -27,6 +27,14 @@ async def test_analyze_daily_readiness_returns_placeholder(monkeypatch: pytest.M
         def logout(self) -> None:
             return None
 
+        def get_personal_info(self) -> dict:
+            """Mock personal info for testing."""
+            return {
+                "age": 30,
+                "max_hr": 190,
+                "lactate_threshold_hr": 160,
+            }
+
     monkeypatch.setattr("app.services.ai_analyzer.GarminService", DummyGarminService)
 
     sample_ai_payload = {

@@ -111,6 +111,83 @@ class GarminService:
             return code
         self._mfa_error()
 
+    def get_personal_info(self) -> dict[str, Any]:
+        """
+        Fetch personal information including age, lactate threshold, and VO2 max.
+
+        Returns:
+            Dictionary with:
+                - age: int | None - Athlete's age in years
+                - lactate_threshold_hr: int | None - LTHR in bpm
+                - vo2_max: float | None - VO2 max estimate
+                - max_hr: int | None - Calculated from age if available
+
+        Example:
+            >>> garmin = GarminService()
+            >>> garmin.login()
+            >>> info = garmin.get_personal_info()
+            >>> print(info)
+            {"age": 30, "lactate_threshold_hr": 160, "vo2_max": 52.0, "max_hr": 190}
+        """
+        try:
+            # Fetch personal information from Garmin API
+            personal_data = self._client.garth.connectapi(
+                "/userprofile-service/userprofile/personal-information"
+            )
+
+            age = None
+            lactate_threshold_hr = None
+            vo2_max = None
+            max_hr = None
+
+            if isinstance(personal_data, dict):
+                # Extract age
+                age = personal_data.get("age")
+
+                # Extract lactate threshold HR
+                # API may return as lactateThresholdHeartRate or lactateThreshold
+                lactate_threshold_hr = personal_data.get("lactateThresholdHeartRate")
+                if lactate_threshold_hr is None:
+                    lactate_threshold_hr = personal_data.get("lactateThreshold")
+
+                # Convert to int if numeric
+                if isinstance(lactate_threshold_hr, (int, float)):
+                    lactate_threshold_hr = int(lactate_threshold_hr)
+
+                # Extract VO2 max (may be in various formats)
+                vo2_max = personal_data.get("vo2Max")
+                if vo2_max is None:
+                    vo2_max = personal_data.get("vo2MaxValue")
+
+                # Calculate max HR from age if available
+                if age is not None and isinstance(age, int):
+                    max_hr = 220 - age
+
+            logger.info(
+                "Fetched personal info: age=%s, LTHR=%s, VO2max=%s, max_hr=%s",
+                age,
+                lactate_threshold_hr,
+                vo2_max,
+                max_hr
+            )
+
+            return {
+                "age": age,
+                "lactate_threshold_hr": lactate_threshold_hr,
+                "vo2_max": vo2_max,
+                "max_hr": max_hr,
+            }
+
+        except Exception as err:
+            logger.exception("Failed to fetch personal information from Garmin")
+            return {
+                "age": None,
+                "lactate_threshold_hr": None,
+                "vo2_max": None,
+                "max_hr": None,
+                "error": str(err),
+            }
+
     def get_daily_summary(self, target_date: date) -> dict[str, Any]:
         """Fetch the user summary for a single date."""
 
