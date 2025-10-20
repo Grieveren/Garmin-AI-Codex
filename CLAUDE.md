@@ -83,6 +83,14 @@ Assistant: [Uses debugging-toolkit:debugger agent to diagnose and fix]
 - Only provide summaries when asked
 - For tool results: state outcome in 1-2 sentences, don't repeat details
 
+**CRITICAL: Always think deeply before responding.**
+
+- Use extended thinking for problem-solving, analysis, and decision-making
+- Think through implications, edge cases, and alternatives
+- Reason about trade-offs before recommending solutions
+- Consider context from CLAUDE.md, codebase patterns, and user goals
+- Don't rush to answers - thorough thinking leads to better outcomes
+
 ---
 
 ## Complete Agent Reference
