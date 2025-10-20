@@ -1,5 +1,12 @@
 # Repository Guidelines
 
+## Current Project Status
+- Phase 1 enhanced metrics shipped 2025-10-18; Garmin readiness, VO2 Max, Training Status, SPO2, and respiration all flow through sync, storage, and AI analysis (`README.md`, `PHASE1_ENHANCED_METRICS_COMPLETE.md`).
+- Scheduler integration, config hardening, logging/observability, testing expansion, prompt/config refactor, and persistence follow-up are complete (`docs/architecture_backlog.md`).
+- Web dashboard, APScheduler worker, and Claude Sonnet 4.5 readiness analysis are production-ready; use the README quick start and `scripts/` helpers for local runs.
+- Upcoming Phase 2 priorities: training plan generation, richer dashboard visualizations, chat assistant, and notifications (track in backlog/spec docs).
+- For detailed architecture or prompt changes, cross-reference `AI_Training_Optimizer_Specification.md`, `docs/architecture_backlog.md`, and `app/config/prompts.yaml`.
+
 ## Project Structure & Module Organization
 - `app/` contains the FastAPI application, organized into `routers/`, `services/`, and `models/` with shared utilities in `config.py` and `database.py`.
 - `scripts/` holds operational helpers (`sync_data.py`, `run_scheduler.py`, `initial_setup.py`) used for ingestion, scheduling, and database bootstrapping.

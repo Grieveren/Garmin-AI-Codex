@@ -194,6 +194,87 @@ header.header {
     gap: 1.75rem;
 }
 
+.hero-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
+    gap: 1.75rem;
+    align-items: stretch;
+}
+
+.hero-plan h2 {
+    font-size: 1.45rem;
+    margin-bottom: 0.9rem;
+}
+
+.hero-plan .recommendation-badge {
+    margin-bottom: 1rem;
+}
+
+.hero-plan .workout-type {
+    margin-top: 0.35rem;
+}
+
+.hero-plan .workout-description {
+    margin-top: 1rem;
+}
+
+.hero-meta {
+    margin-top: 1.35rem;
+}
+
+.hero-rationale {
+    margin-top: 1.5rem;
+    background: rgba(72, 187, 120, 0.12);
+    border-left: 4px solid var(--accent-success);
+    padding: 1.2rem 1.5rem;
+    border-radius: 14px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.hero-rationale strong {
+    color: var(--accent-success);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.hero-readiness {
+    background: var(--surface-alt);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+}
+
+.hero-readiness h2 {
+    font-size: 1.2rem;
+}
+
+.hero-readiness .readiness-score {
+    font-size: 3.4rem;
+    text-align: left;
+}
+
+.hero-readiness .metric-row {
+    margin-top: 0.25rem;
+}
+
+.hero-readiness .trend-wrapper {
+    width: 100%;
+}
+
 .card {
     background: var(--surface);
     border-radius: 18px;
@@ -566,6 +647,18 @@ header.header {
 @media (max-width: 900px) {
     body {
         padding: 2rem 1rem;
+    }
+
+    .hero-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hero-readiness {
+        padding: 1.5rem;
+    }
+
+    .hero-readiness .readiness-score {
+        font-size: 3rem;
     }
 
     header.header {

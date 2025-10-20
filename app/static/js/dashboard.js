@@ -210,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastSyncIso = null;
     let latestLoadSummary = null;
     let latestExtendedSignals = null;
+    let syncInProgress = false;
 
     function getAcceptLanguageHeader(lang = currentLanguage) {
         return ACCEPT_LANGUAGE_HEADERS[lang] ?? lang;
@@ -238,13 +239,14 @@ document.addEventListener('DOMContentLoaded', () => {
         setLanguage(next, { revalidate: true });
     });
     refreshBtn?.addEventListener('click', () => {
-        void loadRecommendation();
+        void handleRefresh();
     });
     syncBtn?.addEventListener('click', () => {
-        void syncData();
+        void handleManualSync();
     });
 
     void loadRecommendation();
+    triggerAutoSync();
 
     async function loadRecommendation() {
         const loadingDiv = document.getElementById('loading');
@@ -634,20 +636,59 @@ document.addEventListener('DOMContentLoaded', () => {
         card.style.display = hasData ? 'block' : 'none';
     }
 
-    async function syncData() {
-        if (!syncBtn) {
+    async function handleManualSync() {
+        await performSync({ triggeredByUser: true });
+        await loadRecommendation();
+    }
+
+    async function handleRefresh() {
+        await loadRecommendation();
+        triggerAutoSync(true);
+    }
+
+    function triggerAutoSync(triggeredByUser = false) {
+        if (syncInProgress) {
+            if (triggeredByUser) {
+                showToast('status.sync_in_progress', 'info');
+            }
             return;
         }
 
-        const syncingText = t('status.sync_in_progress');
-        const restoreText = () => {
-            if (syncBtn) {
-                syncBtn.textContent = t('button.sync');
+        void (async () => {
+            const success = await performSync({ triggeredByUser });
+            if (success) {
+                await loadRecommendation();
             }
-        };
+        })();
+    }
 
-        syncBtn.disabled = true;
-        syncBtn.textContent = syncingText;
+    async function performSync({ triggeredByUser = false } = {}) {
+        if (syncInProgress) {
+            if (triggeredByUser) {
+                showToast('status.sync_in_progress', 'info');
+            }
+            return false;
+        }
+
+        syncInProgress = true;
+
+        if (syncBtn) {
+            syncBtn.disabled = true;
+            syncBtn.textContent = t('status.sync_in_progress');
+        }
+
+        const chip = document.getElementById('last-sync-chip');
+        const previousChipState =
+            chip != null
+                ? {
+                      text: chip.textContent,
+                      className: chip.className,
+                  }
+                : null;
+        if (chip) {
+            chip.textContent = t('status.sync_in_progress');
+            chip.className = 'status-chip';
+        }
 
         try {
             const response = await fetch('/manual/sync/now', {
@@ -661,15 +702,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             await response.json();
-            showToast('toast.sync_success', 'success');
-            await loadRecommendation();
+
+            const nowIso = new Date().toISOString();
+            lastSyncIso = nowIso;
+            updateLastSyncChip(nowIso);
+
+            if (triggeredByUser) {
+                showToast('toast.sync_success', 'success');
+            }
+
+            return true;
         } catch (error) {
             console.error('Sync error:', error);
             const message = error instanceof Error ? error.message : 'Unknown error';
             showToast('toast.sync_failure', 'error', { error: message });
+            if (chip) {
+                if (previousChipState) {
+                    chip.textContent = previousChipState.text;
+                    chip.className = previousChipState.className;
+                } else {
+                    chip.textContent = t('status.last_sync_unknown');
+                    chip.className = 'status-chip status-chip--old';
+                }
+            }
+            return false;
         } finally {
-            syncBtn.disabled = false;
-            restoreText();
+            syncInProgress = false;
+            if (syncBtn) {
+                syncBtn.disabled = false;
+                syncBtn.textContent = t('button.sync');
+            }
         }
     }
 
