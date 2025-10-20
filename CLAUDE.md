@@ -327,10 +327,11 @@ AI-Powered Training Optimization System that fetches Garmin fitness data, analyz
 
 - **Python 3.10+** with FastAPI
 - **garminconnect** - Unofficial Garmin API client (may break if Garmin updates)
-- **Anthropic Claude API** (claude-sonnet-4-5-20250929) for AI analysis
+- **Anthropic Claude API** (claude-sonnet-4-5-20250929) for AI analysis with multi-language support
 - **SQLAlchemy** with SQLite (upgradeable to PostgreSQL)
 - **APScheduler** for automated daily syncing
 - **Pydantic Settings** for configuration management
+- **YAML-based configuration** for prompts, thresholds, and localization (EN/DE)
 
 ## Recommended Agents for This Project
 
@@ -433,9 +434,13 @@ python scripts/migrate_phase1_metrics.py
 
 **AIAnalyzer** - Claude AI integration for workout analysis:
 - Daily readiness analysis based on sleep, HRV, resting HR, training load
+- **Activity type differentiation**: Distinguishes between high/moderate/low impact activities (yoga vs running vs cycling)
+- **Nuanced recovery recommendations**: Accounts for activity type in recovery guidance (e.g., yoga after hard run vs another hard run)
 - Workout recommendations (high_intensity, moderate, easy, rest)
 - Training plan adaptation based on recovery metrics
 - Uses comprehensive prompt engineering with user profile, physiological data, and training history
+- **Multi-language support**: Responses in English or German (configurable)
+- **Externalized prompts**: Templates in `app/prompts/`, thresholds in `app/config/prompts.yaml` for easy tuning
 
 **TrainingPlanner** - Generates and adapts training plans:
 - Periodized plans (base, build, peak, taper phases)
@@ -477,12 +482,71 @@ Uses Pydantic Settings with `.env` file support:
 - Automatically imported in app/__init__.py to fix compatibility issues
 - Prevents "AttributeError: 'str' object has no attribute 'strip'" errors
 
+### Configuration Files (`app/config/prompts.yaml`)
+
+**Centralized Prompt & Threshold Configuration:**
+- `prompts.yaml` - Main configuration for AI analysis behavior:
+  - Prompt template paths (`readiness_prompt.txt`, `historical_context.txt`)
+  - Configurable thresholds (HRV drops, ACWR limits, readiness score ranges)
+  - Activity classification rules (training effect thresholds, HR zone thresholds, duration minimums)
+  - Multi-language support (default language, translations for EN/DE)
+
+**Prompt Templates** (`app/prompts/`):
+- `readiness_prompt.txt` - Main AI readiness analysis prompt with activity type differentiation
+- `historical_context.txt` - Historical training data context template
+
+**Key Thresholds (Configurable in prompts.yaml):**
+```yaml
+thresholds:
+  readiness:
+    critical: 20  # 0-20: Critical - rest day required
+    poor: 40      # 21-40: Poor - light activity only
+    low: 60       # 41-60: Low - easy workout
+    moderate: 75  # 61-75: Moderate - moderate intensity OK
+                  # 76-100: High - high intensity OK
+  hrv_drop_pct: 10              # HRV drop > 10% signals fatigue
+  resting_hr_elevated_bpm: 5    # Resting HR +5bpm signals stress
+  sleep_hours_min: 6            # Minimum healthy sleep
+  acwr_moderate: 1.3            # ACWR > 1.3 = elevated risk
+  acwr_high: 1.5                # ACWR > 1.5 = high injury risk
+  no_rest_days: 7               # 7+ consecutive training days = overtraining risk
+```
+
+**Activity Classification:**
+- High Impact: Training Effect ≥ 3.0, or HR Zones 4-5 > 70% duration, or long duration (>90min)
+- Moderate Impact: Training Effect 2.5-3.0, mixed HR zones
+- Low Impact: Training Effect < 2.5, yoga, stretching, recovery activities
+
+**Localization:**
+- Supports multiple languages (currently EN/DE)
+- Configured via `default_language` and `translations` in `prompts.yaml`
+- AI responses fully localized including explanations, tips, and recommendations
+
 ### Scheduler Design (`scripts/run_scheduler.py`)
 
 - Uses `filelock` to prevent multiple instances
 - Runs as standalone process (not embedded in FastAPI)
 - Daily job at 8 AM: sync Garmin data → AI analysis → send notification
 - `--run-now` flag for immediate execution during development
+
+### Frontend Assets (`app/static/`, `app/templates/`)
+
+**Templates** (`app/templates/`):
+- `dashboard.html` - Main dashboard with recommendation-first layout
+- Dynamic data rendering with Jinja2 templates
+- Responsive design with mobile support
+
+**Static Assets** (`app/static/`):
+- `css/dashboard.css` - Custom dashboard styling, recommendation cards, metric displays
+- `js/dashboard.js` - Interactive features, data fetching, UI updates
+- `images/` - Icons, logos, and UI assets
+
+**Dashboard Architecture**:
+- Recommendation-first layout (prioritizes daily AI guidance)
+- Real-time data fetching via API endpoints
+- Graceful degradation for missing metrics
+- Activity type badges (high/moderate/low impact)
+- Localized recommendation display (EN/DE)
 
 ## Implementation Status & Phases
 
@@ -501,7 +565,7 @@ Uses Pydantic Settings with `.env` file support:
 - ✅ Dashboard displaying all Phase 1 metrics with graceful degradation
 - ✅ API endpoints: health check, manual sync (/manual/sync/now), recommendations (/api/recommendations/today)
 
-**Phase 2 (AI Engine) - ✅ COMPLETE (Core Features):**
+**Phase 2 (AI Engine) - ✅ COMPLETE (Core Features + Enhanced Intelligence):**
 - ✅ **Daily readiness analysis (PRODUCTION READY)**
   - Comprehensive AI analysis using Claude Sonnet 4.5
   - Integrates all Phase 1 Enhanced Metrics
@@ -509,17 +573,39 @@ Uses Pydantic Settings with `.env` file support:
   - ACWR (Acute:Chronic Workload Ratio) calculation
   - Consecutive training day tracking
   - Personalized recommendations: high_intensity/moderate/easy/rest
+- ✅ **Activity Type Differentiation (2025-10-19)**
+  - Distinguishes between high/moderate/low impact activities
+  - Activity classification by training effect, HR zones, duration
+  - Nuanced recovery guidance based on activity type
+  - 17 comprehensive tests with production-ready error handling
 - ✅ **Prompt engineering complete**
   - Detailed Phase 1 metrics usage guidelines
   - Training Status contextualization
   - VO2 Max fitness level interpretation
   - SPO2 and Respiration assessment criteria
+  - Activity type interpretation guide with impact levels
+- ✅ **Externalized configuration (2025-10-19)**
+  - AI prompts in `app/prompts/` (readiness_prompt.txt, historical_context.txt)
+  - Configurable thresholds in `app/config/prompts.yaml`
+  - Easy tuning without code changes
+- ✅ **Multi-language support (2025-10-19)**
+  - English and German readiness recommendations
+  - Fully localized explanations, tips, and guidance
+  - Configurable via `prompts.yaml`
 - ⚠️ Training plan generation (backlog)
 - ⚠️ Plan adaptation based on recovery metrics (backlog)
 
 **Phase 3 (Web Interface) - 🟡 PARTIAL:**
-- ✅ **Dashboard showing today's recommendation** (dashboard.html)
+- ✅ **Dashboard with recommendation-first layout (2025-10-20)**
+  - Reorganized to prioritize daily recommendation (user-focused flow)
+  - Enhanced visual design with custom CSS (`app/static/css/dashboard.css`)
+  - Interactive JavaScript (`app/static/js/dashboard.js`)
+  - Displays today's recommendation with full reasoning
 - ✅ **Phase 1 Enhanced Recovery Metrics card** (with graceful degradation)
+- ✅ **Static assets structure**
+  - `app/static/css/` - Custom stylesheets
+  - `app/static/js/` - Frontend JavaScript
+  - `app/static/images/` - UI assets
 - ✅ Manual sync UI with MFA code entry
 - ⚠️ Training plan visualization (not started)
 - ⚠️ AI chat interface with streaming responses (not started)
@@ -669,6 +755,46 @@ When implementing AIAnalyzer, follow this pattern:
 4. Construct comprehensive prompt with JSON schema
 5. Parse and validate Claude response
 6. Cache results with hash of input data
+
+### Prompt Externalization Pattern
+AI prompts and thresholds are externalized for easy tuning without code changes:
+
+```python
+# Load prompt templates
+from pathlib import Path
+import yaml
+
+# Load config
+with open("app/config/prompts.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+# Load prompt template
+prompt_path = Path(config["prompt_path"])
+with open(prompt_path, "r") as f:
+    prompt_template = f.read()
+
+# Access thresholds
+hrv_threshold = config["thresholds"]["hrv_drop_pct"]
+acwr_high = config["thresholds"]["acwr_high"]
+
+# Use template with formatting
+prompt = prompt_template.format(
+    user_profile=user_data,
+    metrics=current_metrics,
+    thresholds=config["thresholds"]
+)
+```
+
+**Key Files:**
+- `app/config/prompts.yaml` - Configuration (thresholds, translations, paths)
+- `app/prompts/readiness_prompt.txt` - Main AI prompt template
+- `app/prompts/historical_context.txt` - Historical data context
+
+**Benefits:**
+- Tune thresholds without code changes
+- A/B test different prompt variations
+- Easy localization management
+- Version control for prompt evolution
 
 ### Database Session Management
 - Use context managers for session lifecycle
