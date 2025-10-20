@@ -833,14 +833,14 @@ activity_classification:
 ### Prompt Templates
 
 **Main Prompt (`app/prompts/readiness_prompt.txt`):**
-- 116 lines of carefully crafted coaching instructions
+- ~115 lines of carefully crafted coaching instructions
 - Includes placeholder variables: `{today}`, `{sleep_info}`, `{hrv_info}`, etc.
 - Dynamically injects thresholds from YAML config
 - Contains activity type interpretation guidelines
 - Specifies JSON response format
 
 **Historical Context (`app/prompts/historical_context.txt`):**
-- 45 lines of baseline comparison logic
+- ~44 lines of baseline comparison logic
 - HRV/RHR deviation calculations
 - ACWR injury risk assessment
 - Sleep debt tracking
@@ -2218,7 +2218,7 @@ Good luck with your training! 🏃‍♂️💪📊
 
 - **Prompt Configuration Files** (NEW - 2025-10-19)
   - **`app/config/prompts.yaml`** - Centralized configuration for thresholds, translations, and activity classification rules
-  - **`app/prompts/readiness_prompt.txt`** - Main AI readiness analysis prompt template (116 lines)
-  - **`app/prompts/historical_context.txt`** - Historical baseline context template (45 lines)
+  - **`app/prompts/readiness_prompt.txt`** - Main AI readiness analysis prompt template (~115 lines)
+  - **`app/prompts/historical_context.txt`** - Historical baseline context template (~44 lines)
   - Enables prompt tuning and A/B testing without code changes
   - Version-controlled prompt evolution

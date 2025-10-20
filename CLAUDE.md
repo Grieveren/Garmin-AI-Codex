@@ -492,8 +492,8 @@ Uses Pydantic Settings with `.env` file support:
   - Multi-language support (default language, translations for EN/DE)
 
 **Prompt Templates** (`app/prompts/`):
-- `readiness_prompt.txt` - Main AI readiness analysis prompt with activity type differentiation
-- `historical_context.txt` - Historical training data context template
+- `readiness_prompt.txt` - Main AI readiness analysis prompt with activity type differentiation (~115 lines)
+- `historical_context.txt` - Historical training data context template (~44 lines)
 
 **Key Thresholds (Configurable in prompts.yaml):**
 ```yaml
