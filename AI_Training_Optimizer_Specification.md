@@ -88,6 +88,7 @@ Uses Claude Sonnet 4.5 (most intelligent model). Can reduce costs by:
 - **garminconnect==0.2.30** - Garmin data fetching (Python 3.14 compatible, unofficial but verified working)
 - **SQLite** - Data storage (upgradeable to PostgreSQL)
 - **Anthropic Python SDK** - Claude AI integration (claude-sonnet-4-5-20250929)
+- **YAML** - Configuration management (prompts, thresholds, translations)
 - **Plotly/Dash** - Interactive visualizations
 - **APScheduler** - Automated daily syncing
 - **Pandas** - Data processing and analysis
@@ -105,9 +106,16 @@ training-optimizer/
 │   ├── config.py                   # Configuration management
 │   ├── database.py                 # Database models and session
 │   │
+│   ├── config/
+│   │   └── prompts.yaml            # AI prompt configuration (thresholds, translations) (NEW - 2025-10-19)
+│   │
+│   ├── prompts/
+│   │   ├── readiness_prompt.txt    # Main AI readiness analysis prompt (NEW - 2025-10-19)
+│   │   └── historical_context.txt  # Historical baseline context template (NEW - 2025-10-19)
+│   │
 │   ├── services/
 │   │   ├── garmin_service.py       # Garmin data fetching
-│   │   ├── ai_analyzer.py          # Claude AI analysis engine
+│   │   ├── ai_analyzer.py          # Claude AI analysis engine (ENHANCED - activity type classification)
 │   │   ├── training_planner.py     # Workout plan generation
 │   │   ├── data_processor.py       # Data aggregation and prep
 │   │   └── notification_service.py # Email/push notifications
@@ -126,14 +134,16 @@ training-optimizer/
 │   │
 │   ├── templates/                  # Jinja2 HTML templates
 │   │   ├── base.html
-│   │   ├── dashboard.html
+│   │   ├── dashboard.html          # Recommendation-first layout (UPDATED - 2025-10-20)
 │   │   ├── insights.html
 │   │   ├── training_plan.html
 │   │   └── chat.html
 │   │
-│   └── static/                     # CSS, JS, images
+│   └── static/                     # CSS, JS, images (NEW - 2025-10-20)
 │       ├── css/
+│       │   └── dashboard.css       # Custom dashboard styling
 │       ├── js/
+│       │   └── dashboard.js        # Interactive dashboard features
 │       └── images/
 │
 ├── scripts/
@@ -660,7 +670,63 @@ WORKOUT_LIBRARY = {
 
 AI selects from this library and customizes based on your fitness level and goals.
 
-#### 6. **Real-Time Plan Adaptation**
+#### 6. **Activity Type Classification** (NEW - 2025-10-19)
+
+```python
+def _classify_activity_impact(self, activity: dict) -> str:
+    """
+    Classifies activities by impact level for nuanced recovery recommendations.
+
+    Impact Levels:
+    - HIGH: Running, plyometrics, training effect ≥3.0, HR zones 4-5 >70%, duration >90min
+    - MODERATE: Cycling, rowing, strength training (training effect 2.5-3.0)
+    - LOW: Swimming, yoga, stretching, recovery activities (training effect <2.5)
+
+    Classification Rules:
+    1. Check activity type (running/cycling/swimming/yoga/etc.)
+    2. Calculate total training effect (aerobic + anaerobic)
+    3. Analyze heart rate zones and duration
+    4. Return impact level: "high" | "moderate" | "low"
+
+    Why This Matters:
+    - Yoga after hard run = good recovery strategy
+    - Run after run without rest = injury risk
+    - Cycling can bridge hard run sessions
+    - Swimming provides cardiovascular work without joint stress
+
+    Example Output (activity breakdown):
+    {
+        "high": {"count": 3, "total_distance_km": 30.5, "avg_duration_min": 45},
+        "moderate": {"count": 2, "total_distance_km": 80.2, "avg_duration_min": 105},
+        "low": {"count": 1, "total_distance_km": 0, "avg_duration_min": 30}
+    }
+
+    This data enriches AI analysis to recommend:
+    - "You've done 3 high-impact runs this week. Consider low-impact today."
+    - "Yesterday's yoga was good recovery. Ready for quality work today."
+    - "Two hard runs in 48 hours without rest. Recommend easy or rest."
+    """
+```
+
+**Classification Thresholds (configurable in `app/config/prompts.yaml`):**
+```yaml
+activity_classification:
+  training_effect:
+    high_impact_threshold: 3.0      # Aerobic + Anaerobic TE
+    moderate_impact_threshold: 2.5
+    very_high_threshold: 4.0        # Extreme effort detection
+  heart_rate:
+    zone_threshold: 0.7             # % of time in high zones
+    high_intensity_threshold: 0.85  # % of max HR
+  duration:
+    minimum_seconds: 1800           # Ignore activities <30min
+    long_duration_minutes: 90       # Flag long sessions
+```
+
+**Integration with AI Prompt:**
+The activity breakdown is passed to Claude with interpretation guidelines explaining musculoskeletal stress, neuromuscular fatigue, and recovery timelines for different impact levels.
+
+#### 7. **Real-Time Plan Adaptation**
 
 ```python
 async def adapt_training_plan(
@@ -692,6 +758,117 @@ async def adapt_training_plan(
     The AI adjusts the entire week/plan to maintain progression while respecting recovery.
     """
 ```
+
+---
+
+## 🔧 Configuration Architecture (NEW - 2025-10-19)
+
+The system uses externalized configuration to separate AI prompt engineering from code, enabling:
+- Easy threshold tuning without code changes
+- A/B testing of different prompt strategies
+- Version control of prompt evolution
+- Multi-language support for recommendations
+
+### File Structure
+
+```
+app/
+├── config/
+│   └── prompts.yaml              # Configuration hub
+├── prompts/
+│   ├── readiness_prompt.txt      # Main AI analysis prompt
+│   └── historical_context.txt    # Historical baseline template
+```
+
+### Configuration File (`app/config/prompts.yaml`)
+
+```yaml
+# Prompt file locations
+prompt_path: "app/prompts/readiness_prompt.txt"
+historical_context_path: "app/prompts/historical_context.txt"
+
+# Language configuration
+default_language: en
+
+# Translation mappings
+translations:
+  en:
+    instruction: >
+      Respond entirely in English. Write concise, actionable explanations
+      while keeping all JSON keys exactly as specified.
+  de:
+    instruction: >
+      Antworte ausschließlich in deutscher Sprache. Formuliere alle
+      erklärenden Texte, Aufzählungen, Tipps und Begründungen auf Deutsch,
+      lasse die JSON-Schlüssel jedoch unverändert in Englisch.
+
+# AI analysis thresholds (dynamically injected into prompts)
+thresholds:
+  readiness:
+    critical: 20      # <20 = mandate rest day
+    poor: 40          # 20-40 = strong consideration for rest
+    low: 60           # 40-60 = recommend easy/recovery
+    moderate: 75      # 60-75 = moderate training appropriate
+  hrv_drop_pct: 10           # % drop from baseline = red flag
+  resting_hr_elevated_bpm: 5 # bpm above baseline = incomplete recovery
+  sleep_hours_min: 6         # Minimum adequate sleep
+  acwr_moderate: 1.3         # Caution threshold
+  acwr_high: 1.5             # High injury risk
+  no_rest_days: 7            # Consecutive days = mandate rest
+
+# Activity classification rules
+activity_classification:
+  training_effect:
+    high_impact_threshold: 3.0
+    moderate_impact_threshold: 2.5
+    very_high_threshold: 4.0
+  heart_rate:
+    zone_threshold: 0.7
+    high_intensity_threshold: 0.85
+  duration:
+    minimum_seconds: 1800
+    long_duration_minutes: 90
+```
+
+### Prompt Templates
+
+**Main Prompt (`app/prompts/readiness_prompt.txt`):**
+- 116 lines of carefully crafted coaching instructions
+- Includes placeholder variables: `{today}`, `{sleep_info}`, `{hrv_info}`, etc.
+- Dynamically injects thresholds from YAML config
+- Contains activity type interpretation guidelines
+- Specifies JSON response format
+
+**Historical Context (`app/prompts/historical_context.txt`):**
+- 45 lines of baseline comparison logic
+- HRV/RHR deviation calculations
+- ACWR injury risk assessment
+- Sleep debt tracking
+- Consecutive training day warnings
+
+### Benefits
+
+**For Developers:**
+- Change thresholds without touching code
+- Test different prompt strategies easily
+- Track prompt evolution in git
+- Add new languages without code changes
+
+**For Users:**
+- Tunable sensitivity (conservative vs aggressive)
+- Localized recommendations
+- Personalized threshold adjustments
+
+**Example: Adding Spanish Support**
+```yaml
+translations:
+  es:
+    instruction: >
+      Responde completamente en español. Escribe explicaciones concisas y
+      prácticas manteniendo todas las claves JSON exactamente como se especifican.
+```
+
+Then set `default_language: es` in config or environment variable.
 
 ---
 
@@ -1537,31 +1714,93 @@ curl http://localhost:8000/api/export/csv?start_date=2025-01-01 \
 
 ## 🎨 Dashboard Wireframes
 
-### Main Dashboard Layout
+### Main Dashboard Layout (UPDATED - 2025-10-20: Recommendation-First Design)
+
+**Design Philosophy:**
+The dashboard now leads with the AI recommendation prominently at the top, followed by supporting recovery metrics. This "recommendation-first" approach ensures users immediately see their daily workout guidance without scrolling.
+
+**Key Features:**
+- Responsive design with mobile support
+- Custom CSS styling (`app/static/css/dashboard.css`)
+- Interactive JavaScript features (`app/static/js/dashboard.js`)
+- Graceful degradation when metrics unavailable
+- Visual hierarchy: AI guidance → Recovery metrics → Historical data
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ TRAINING OPTIMIZER                    [Sync] [Settings] [Chat]  │
+│ 🏃 TRAINING OPTIMIZER              [Sync] [Settings] [Chat]     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ TODAY'S TRAINING - October 16, 2025                         │ │
+│ │ 🎯 TODAY'S RECOMMENDATION - October 20, 2025                │ │
 │ │                                                               │ │
-│ │  🟢 READY TO TRAIN - Readiness: 82/100                       │ │
+│ │  🟢 READY TO TRAIN                                           │ │
+│ │  Readiness Score: 82/100  |  Confidence: HIGH                │ │
 │ │                                                               │ │
-│ │  Recommended Workout: Tempo Run (45 min)                     │ │
-│ │  [View Details] [Start Workout] [Adjust Plan]               │ │
+│ │  ┌────────────────────────────────────────────────────────┐ │ │
+│ │  │ 🏃 TEMPO RUN - 45 MINUTES                              │ │ │
+│ │  │                                                          │ │ │
+│ │  │ Workout Structure:                                       │ │ │
+│ │  │ • 10min warm-up (easy pace, Zone 2)                     │ │ │
+│ │  │ • 25min at threshold pace (4:45-5:00/km, Zone 4)        │ │ │
+│ │  │   Target HR: 165-175 bpm                                │ │ │
+│ │  │ • 10min cool-down (easy pace)                           │ │ │
+│ │  │                                                          │ │ │
+│ │  │ Intensity: 7/10                                         │ │ │
+│ │  └────────────────────────────────────────────────────────┘ │ │
 │ │                                                               │ │
-│ │  Why today? Your recovery is excellent, time for quality...  │ │
+│ │  💡 WHY THIS WORKOUT?                                        │ │
+│ │  Your recovery metrics are excellent. Body is ready for      │ │
+│ │  quality work. Threshold training will improve lactate       │ │
+│ │  clearance and race pace endurance for your marathon goal.   │ │
+│ │                                                               │ │
+│ │  ✅ KEY FACTORS                                               │ │
+│ │  • Sleep: 8.2 hours (85% quality) - Excellent                │ │
+│ │  • HRV: 62ms vs 7-day avg 58ms - Normal                      │ │
+│ │  • Resting HR: 48 bpm (baseline) - Good                      │ │
+│ │  • Training load stable, no spikes                           │ │
+│ │  • Activity type: Low-impact yesterday (yoga)                │ │
+│ │                                                               │ │
+│ │  💊 RECOVERY TIPS                                             │ │
+│ │  • Hydrate well (500ml before workout)                       │ │
+│ │  • You perform better in afternoon - consider 4PM            │ │
+│ │  • Post-workout protein within 30 minutes                    │ │
+│ │                                                               │ │
+│ │  ⚠️  IF YOU FEEL TIRED?                                       │ │
+│ │  Switch to: 45min easy run at Zone 2 (135-145 bpm)          │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
-│ ┌──────────────┬──────────────┬──────────────┬──────────────┐  │
-│ │ Sleep        │ HRV          │ Resting HR   │ Training Load│  │
-│ │ 8.2 hrs ✓    │ 62ms ✓       │ 48 bpm ✓     │ 485 ✓        │  │
-│ │ 85% quality  │ (avg: 58ms)  │ (baseline)   │ ACWR: 1.09   │  │
-│ └──────────────┴──────────────┴──────────────┴──────────────┘  │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ 📊 ENHANCED RECOVERY METRICS (Phase 1)                      │ │
+│ │                                                               │ │
+│ │ ┌──────────────┬──────────────┬──────────────┬────────────┐ │ │
+│ │ │ Training     │ VO2 Max      │ Training     │ SPO2/      │ │ │
+│ │ │ Readiness    │              │ Status       │ Respiration│ │ │
+│ │ │              │              │              │            │ │ │
+│ │ │ 75/100 ✓     │ 51.2 ml/kg/m │ PRODUCTIVE ✓ │ 96% / 14.5 │ │ │
+│ │ │ GOOD         │ Good fitness │ Gains!       │ bpm        │ │ │
+│ │ └──────────────┴──────────────┴──────────────┴────────────┘ │ │
+│ │                                                               │ │
+│ │ ┌──────────────┬──────────────┬──────────────┬────────────┐ │ │
+│ │ │ Sleep        │ HRV          │ Resting HR   │ ACWR       │ │ │
+│ │ │ 8.2 hrs ✓    │ 62ms ✓       │ 48 bpm ✓     │ 1.09 ✓     │ │ │
+│ │ │ 85% quality  │ (avg: 58ms)  │ (baseline)   │ Optimal    │ │ │
+│ │ └──────────────┴──────────────┴──────────────┴────────────┘ │ │
+│ └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
-│ THIS WEEK'S PLAN                              Week 8 of 16      │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ 📈 RECENT TRAINING PATTERN (Last 7 Days)                    │ │
+│ │                                                               │ │
+│ │ Activity Breakdown by Impact:                                │ │
+│ │ • HIGH impact: 3 sessions (30.5 km, avg 45min) - Running     │ │
+│ │ • MODERATE: 2 sessions (80.2 km, avg 105min) - Cycling       │ │
+│ │ • LOW impact: 1 session (30min) - Yoga                       │ │
+│ │                                                               │ │
+│ │ Total: 6/7 days active, 1 rest day                           │ │
+│ │ Consecutive training: 4 days                                 │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│ THIS WEEK'S PLAN (if available)            Week 8 of 16         │
 │ ┌─────────────────────────────────────────────────────────────┐ │
 │ │ Mon  Rest              ✓                                     │ │
 │ │ Tue  Easy 60min        ✓                                     │ │
@@ -1572,22 +1811,17 @@ curl http://localhost:8000/api/export/csv?start_date=2025-01-01 \
 │ │ Sun  Long Run 22km                                           │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
-│ WEEKLY SUMMARY                                                   │
-│ ┌──────────────────────────────────────────────────────────┐   │
-│ │ [Volume Chart] [HR Zones] [Training Load Graph]          │   │
-│ └──────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│ RECENT ACTIVITIES                                                │
-│ ┌──────────────────────────────────────────────────────────┐   │
-│ │ Oct 15  Easy Run       10.5 km  5:52/km  HR 142  ✓       │   │
-│ │ Oct 14  Rest Day                                          │   │
-│ │ Oct 13  Long Run       20.0 km  5:45/km  HR 148  ✓       │   │
-│ └──────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│ [View All Activities] [Analytics] [Training Plan] [AI Chat]     │
+│ [View Full Analytics] [Training Plan] [AI Chat] [Manual Sync]   │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Visual Design Notes:**
+- Hero section: AI recommendation with prominent readiness score
+- Color-coded status indicators (🟢 green = ready, 🟡 yellow = caution, 🔴 red = rest)
+- Expandable sections for detailed workout structure
+- Activity type breakdown shows high/moderate/low impact distribution
+- Responsive grid layout adapts to mobile screens
 
 ---
 
@@ -1606,6 +1840,21 @@ def test_readiness_calculation()
 def test_prompt_generation()
 def test_response_parsing()
 def test_plan_adaptation()
+
+# Test activity type classification (NEW - 2025-10-19)
+# 17 comprehensive tests in tests/test_ai_analyzer.py
+def test_classify_activity_impact_high_running()
+def test_classify_activity_impact_high_training_effect()
+def test_classify_activity_impact_high_hr_zones()
+def test_classify_activity_impact_low_swimming()
+def test_classify_activity_impact_low_yoga()
+def test_classify_activity_impact_moderate_cycling()
+def test_classify_activity_impact_moderate_strength()
+def test_classify_activity_impact_low_stretching()
+def test_classify_activity_impact_high_long_duration()
+def test_activity_breakdown_aggregation()
+def test_activity_breakdown_edge_cases()
+# ... and more (see tests/test_ai_analyzer.py for full coverage)
 
 # Test database operations
 def test_store_daily_metrics()
@@ -1716,17 +1965,26 @@ Focus on Weeks 1-4 to ship the MVP; treat Week 5+ items as backlog features once
 5. ✅ API data availability fully documented (72 methods tested)
 6. ⚠️ Database models minimal (needs expansion for Phase 2)
 
-### Week 2: AI Intelligence (CRITICAL)
-1. ✅ Claude AI integration
-2. ✅ Daily readiness analysis
-3. ✅ Recommendation generation
-4. ⚠️ Basic training plan creation (backlog)
+### Week 2: AI Intelligence (CRITICAL) ✅ COMPLETE (Core Features - 2025-10-19)
+1. ✅ Claude AI integration (claude-sonnet-4-5-20250929)
+2. ✅ Daily readiness analysis with Phase 1 Enhanced Metrics
+3. ✅ **Activity type differentiation** (high/moderate/low impact classification)
+4. ✅ **Nuanced recovery recommendations** (yoga-after-run vs run-after-run intelligence)
+5. ✅ Recommendation generation with workout suggestions
+6. ✅ **Externalized prompts & configuration** (`app/config/prompts.yaml`, `app/prompts/`)
+7. ✅ **Multi-language support** (English and German)
+8. ⚠️ Basic training plan creation (backlog)
 
-### Week 3: User Interface
-1. ✅ API endpoints
-2. ✅ Web dashboard
-3. ✅ Today's training view
-4. ⚠️ Training plan display (not implemented)
+### Week 3: User Interface ✅ COMPLETE (Core Features - 2025-10-20)
+1. ✅ API endpoints (`/api/recommendations/today`, `/manual/sync/now`)
+2. ✅ **Recommendation-first dashboard** (redesigned 2025-10-20)
+3. ✅ **Custom styling and interactivity** (`app/static/css/dashboard.css`, `app/static/js/dashboard.js`)
+4. ✅ Today's training view with AI recommendation hero section
+5. ✅ Enhanced Recovery Metrics display (Phase 1 metrics)
+6. ✅ **Activity breakdown visualization** (high/moderate/low impact)
+7. ✅ **Responsive design** with mobile support
+8. ⚠️ Training plan display (not implemented)
+9. ⚠️ AI chat interface with streaming (not implemented)
 
 ### Week 4: Automation
 1. 🟡 Scheduler scaffold with locking in place (run_scheduler.py placeholder job)
@@ -1919,15 +2177,28 @@ Good luck with your training! 🏃‍♂️💪📊
 ## 📋 Document Revision History
 
 - **Version 1.0** (October 2025) - Initial specification
-- Comprehensive training optimization system design
-- Daily AI-powered workout recommendations
-- Adaptive training plans with real-time adjustments
-- Complete implementation guide for Claude Code
+  - Comprehensive training optimization system design
+  - Daily AI-powered workout recommendations
+  - Adaptive training plans with real-time adjustments
+  - Complete implementation guide for Claude Code
+
 - **Version 1.1** (October 17, 2025) - Updated with verified implementation status
-- Added confirmed working garminconnect version (0.2.30)
-- Documented MFA authentication implementation
-- Added reference to comprehensive API testing (72 methods)
-- Updated Phase 1 completion status
+  - Added confirmed working garminconnect version (0.2.30)
+  - Documented MFA authentication implementation
+  - Added reference to comprehensive API testing (72 methods)
+  - Updated Phase 1 completion status
+
+- **Version 1.2** (October 20, 2025) - Phase 2 Features & Configuration Architecture
+  - **Activity Type Differentiation** (2025-10-19): High/moderate/low impact classification with nuanced recovery recommendations
+  - **Externalized Prompts & Configuration** (2025-10-19): YAML-based configuration (`app/config/prompts.yaml`) for thresholds, translations, and prompt templates
+  - **Multi-language Support** (2025-10-19): English and German recommendations via configurable translation system
+  - **Dashboard Reorganization** (2025-10-20): Recommendation-first layout with custom CSS/JS, responsive design, activity breakdown visualization
+  - New Configuration Architecture section documenting YAML config structure
+  - Updated project structure to include `app/config/`, `app/prompts/`, and `app/static/`
+  - Enhanced AI Analysis Engine documentation with activity classification methods
+  - Updated dashboard wireframes showing recommendation-first design
+  - Updated tech stack to include YAML configuration management
+  - Updated Phase 2 and Phase 3 implementation status with new features
 
 ---
 
@@ -1944,3 +2215,10 @@ Good luck with your training! 🏃‍♂️💪📊
   - Architecture patterns and conventions
   - Implementation status tracking
   - Critical considerations and known issues
+
+- **Prompt Configuration Files** (NEW - 2025-10-19)
+  - **`app/config/prompts.yaml`** - Centralized configuration for thresholds, translations, and activity classification rules
+  - **`app/prompts/readiness_prompt.txt`** - Main AI readiness analysis prompt template (116 lines)
+  - **`app/prompts/historical_context.txt`** - Historical baseline context template (45 lines)
+  - Enables prompt tuning and A/B testing without code changes
+  - Version-controlled prompt evolution

@@ -1,8 +1,28 @@
 # Architecture Backlog
 
-_Last updated: 2025-02-27_
+_Last updated: 2025-10-20_
 
 This living document captures post-MVP architecture and reliability work. Use it to create focused branches/issues and to track progress as items move from planning to done.
+
+## Phase 2 Completed Features (2025-10-19 to 2025-10-20)
+
+Following Phase 1.5 infrastructure work, several Phase 2 AI intelligence features have been implemented and shipped to production:
+
+1. **Activity Type Differentiation** _(✅ completed 2025-10-19)_ — AI now distinguishes between high/moderate/low impact activities.
+   - Classifies workouts by training effect, HR zones, and duration (see `app/services/ai_analyzer.py`).
+   - Provides nuanced recovery recommendations (e.g., yoga after hard run vs. run after run).
+   - 17 comprehensive tests added to validate classification logic.
+
+2. **Multi-language Support** _(✅ completed 2025-10-19)_ — AI recommendations now available in English and German.
+   - Configured via `app/config/prompts.yaml` with `default_language` setting.
+   - Full localization of explanations, tips, and workout guidance.
+   - Extensible to additional languages via YAML translation blocks.
+
+3. **Dashboard Reorganization** _(✅ completed 2025-10-20)_ — Recommendation-first layout with enhanced UX.
+   - Redesigned to prioritize daily AI guidance (user-focused flow).
+   - Custom CSS/JS in `app/static/` for responsive design.
+   - Activity breakdown by impact level with visual indicators.
+   - Graceful degradation for missing metrics.
 
 ## Phase 1.5 Priorities
 
