@@ -1,5 +1,138 @@
 {% extends "base.html" %}
+
+{% block title %}Training Analytics - AI Training Optimizer{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/insights.css') }}">
+{% endblock %}
+
 {% block content %}
-<h1>Insights</h1>
-<p>Insights page placeholder.</p>
+    <div class="insights-container">
+        <header class="page-header">
+            <h1>📊 Training Analytics</h1>
+        </header>
+
+        <div class="controls">
+            <div class="date-range-selector">
+                <label for="date-range">Time Range:</label>
+                <select id="date-range" class="select">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="custom">Custom range</option>
+                </select>
+            </div>
+
+            <div id="custom-date-inputs" class="custom-date-inputs" style="display: none;">
+                <label for="start-date">From:</label>
+                <input type="date" id="start-date" class="input-date">
+                <label for="end-date">To:</label>
+                <input type="date" id="end-date" class="input-date">
+                <button id="apply-custom-range" class="btn btn-primary">Apply</button>
+            </div>
+        </div>
+
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading analytics data...</p>
+        </div>
+
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <div class="weekly-summary">
+            <h2>Weekly Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-label">Activities</div>
+                    <div class="summary-value" id="summary-activities">--</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Total Distance</div>
+                    <div class="summary-value" id="summary-distance">-- km</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Total Time</div>
+                    <div class="summary-value" id="summary-duration">-- min</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Avg Readiness</div>
+                    <div class="summary-value" id="summary-readiness">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Readiness Trend</h3>
+                    <button class="btn-export" data-chart="readiness-chart">📥 Export PNG</button>
+                </div>
+                <div id="readiness-chart" class="chart"></div>
+                <div class="chart-loading">
+                    <div class="spinner"></div>
+                    <p>Loading chart...</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Training Load</h3>
+                    <button class="btn-export" data-chart="training-load-chart">📥 Export PNG</button>
+                </div>
+                <div id="training-load-chart" class="chart"></div>
+                <div class="chart-loading">
+                    <div class="spinner"></div>
+                    <p>Loading chart...</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Sleep-Performance Correlation</h3>
+                    <button class="btn-export" data-chart="sleep-performance-chart">📥 Export PNG</button>
+                </div>
+                <div id="sleep-performance-chart" class="chart"></div>
+                <div class="chart-loading">
+                    <div class="spinner"></div>
+                    <p>Loading chart...</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Activity Breakdown</h3>
+                    <button class="btn-export" data-chart="activity-breakdown-chart">📥 Export PNG</button>
+                </div>
+                <div id="activity-breakdown-chart" class="chart"></div>
+                <div class="chart-loading">
+                    <div class="spinner"></div>
+                    <p>Loading chart...</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Recovery Metric Correlation</h3>
+                    <div class="chart-controls">
+                        <select id="metric-selector" class="select-small">
+                            <option value="hrv">HRV</option>
+                            <option value="sleep">Sleep</option>
+                            <option value="rhr">Resting HR</option>
+                        </select>
+                        <button class="btn-export" data-chart="recovery-correlation-chart">📥 Export PNG</button>
+                    </div>
+                </div>
+                <div id="recovery-correlation-chart" class="chart"></div>
+                <div class="chart-loading">
+                    <div class="spinner"></div>
+                    <p>Loading chart...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <script src="{{ url_for('static', path='/js/insights.js') }}"></script>
 {% endblock %}

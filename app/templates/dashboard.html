@@ -1,144 +1,138 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="meta.title">AI Training Optimizer - Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/dashboard.css') }}">
-    <script src="{{ url_for('static', path='/js/dashboard.js') }}" defer></script>
-</head>
-<body>
-    <a href="#content" class="skip-link" role="navigation" aria-label="Skip to main content">Skip to main content</a>
-    <div class="container">
-        <header class="header">
-            <div>
-                <h1 data-i18n="header.title">🏃 AI Training Optimizer</h1>
-                <div class="date" id="current-date"></div>
-            </div>
-            <div class="header-actions">
-                <button class="control-btn" id="language-toggle" type="button" aria-label="Toggle language" data-i18n="button.language">
-                    🇬🇧 English
-                </button>
-                <button class="control-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode">
-                    🌙 Dark
-                </button>
-                <div class="status-chip" id="last-sync-chip">
-                    Last sync · --
-                </div>
-                <button class="control-btn control-btn--accent" id="sync-btn" type="button">
-                    ⬇️ Sync Data
-                </button>
-                <button class="control-btn" id="refresh-btn" type="button">
-                    🔄 Refresh
-                </button>
-            </div>
-        </header>
+{% extends "base.html" %}
 
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p data-i18n="loading.message">Analyzing your Garmin data with Claude AI...</p>
+{% block title %}AI Training Optimizer - Dashboard{% endblock %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="header">
+        <div>
+            <h1 data-i18n="header.title">🏃 AI Training Optimizer</h1>
+            <div class="date" id="current-date"></div>
         </div>
-
-        <main id="content" class="main-content" style="display: none;">
-            <section class="card hero-card">
-                <div class="hero-grid">
-                    <div class="hero-plan">
-                        <h2 data-i18n="workout.heading">💪 Suggested Workout</h2>
-                        <div class="recommendation-badge" id="recommendation-badge">--</div>
-                        <div class="workout-type" id="workout-type">--</div>
-                        <div class="workout-description" id="workout-description">--</div>
-                        <div class="workout-meta hero-meta">
-                            <div class="meta-item">
-                                <div class="meta-label" data-i18n="workout.duration">Duration</div>
-                                <div class="meta-value" id="workout-duration">-- min</div>
-                            </div>
-                            <div class="meta-item">
-                                <div class="meta-label" data-i18n="workout.intensity">Intensity</div>
-                                <div class="meta-value" id="workout-intensity">-- / 10</div>
-                            </div>
-                        </div>
-                        <div class="hero-rationale">
-                            <strong data-i18n="workout.rationale_heading">Why this workout?</strong>
-                            <span id="workout-rationale">--</span>
-                        </div>
-                    </div>
-                    <div class="hero-readiness">
-                        <h2 data-i18n="readiness.heading">Today's Readiness</h2>
-                        <div class="readiness-score" id="readiness-score">--</div>
-                        <div class="confidence" id="confidence-badge">Confidence: --</div>
-                        <div class="trend-wrapper">
-                            <span class="trend-title" data-i18n="trend.title">7-day trend</span>
-                            <div class="trend-chart" id="readiness-trend" aria-label="7-day readiness trend chart">
-                                <span class="trend-empty" data-i18n="trend.need_more">Need more history</span>
-                            </div>
-                        </div>
-                        <div class="metric-row">
-                            <div class="metric-chip" id="acwr-badge" style="display: none;"></div>
-                            <div class="metric-chip" id="load-summary-count" data-i18n="summary.activities">Activities · --</div>
-                            <div class="metric-chip" id="load-summary-distance" data-i18n="summary.distance">Distance · -- km</div>
-                            <div class="metric-chip" id="load-summary-duration" data-i18n="summary.duration">Time · -- min</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="panel-grid">
-                <section class="card factors-card">
-                    <h2 data-i18n="factors.heading">✅ Key Factors</h2>
-                    <div id="key-factors"></div>
-                </section>
-                <section class="card tips-card">
-                    <h2 data-i18n="tips.heading">💡 Recovery Tips</h2>
-                    <div id="recovery-tips"></div>
-                </section>
+        <div class="header-actions">
+            <div class="status-chip" id="last-sync-chip">
+                Last sync · --
             </div>
+            <button class="control-btn control-btn--accent" id="sync-btn" type="button">
+                ⬇️ Sync Data
+            </button>
+            <button class="control-btn" id="refresh-btn" type="button">
+                🔄 Refresh
+            </button>
+        </div>
+    </header>
 
-            <section class="card red-flags-card" id="red-flags-section" style="display: none;">
-                <h2 data-i18n="red_flags.heading">⚠️ Things to Watch</h2>
-                <div id="red-flags"></div>
-            </section>
-
-            <section class="card reasoning-card">
-                <h2 data-i18n="analysis.heading">🤖 AI Analysis</h2>
-                <div class="reasoning-text" id="ai-reasoning">--</div>
-            </section>
-
-            <section class="card metrics-card" id="enhanced-metrics-card" style="display: none;">
-                <h2 data-i18n="enhanced.heading">🔬 Enhanced Recovery Metrics</h2>
-                <div class="enhanced-metrics">
-                    <div class="enhanced-metric">
-                        <div class="enhanced-label" data-i18n="enhanced.training_readiness">Training Readiness</div>
-                        <div class="enhanced-value" id="garmin-readiness">--</div>
-                    </div>
-                    <div class="enhanced-metric">
-                        <div class="enhanced-label" data-i18n="enhanced.vo2_max">VO₂ Max</div>
-                        <div class="enhanced-value" id="vo2-max">--</div>
-                    </div>
-                    <div class="enhanced-metric">
-                        <div class="enhanced-label" data-i18n="enhanced.training_status">Training Status</div>
-                        <div class="enhanced-value" id="training-status">--</div>
-                    </div>
-                    <div class="enhanced-metric">
-                        <div class="enhanced-label" data-i18n="enhanced.spo2">Blood Oxygen</div>
-                        <div class="enhanced-value" id="spo2">--</div>
-                    </div>
-                    <div class="enhanced-metric">
-                        <div class="enhanced-label" data-i18n="enhanced.respiration">Respiration</div>
-                        <div class="enhanced-value" id="respiration">--</div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="card metrics-card" id="extended-signals-card" style="display: none;">
-                <h2 data-i18n="extended.heading">🧭 Additional Signals</h2>
-                <div class="extended-signals-meta" id="extended-signal-badges"></div>
-                <div class="extended-load-focus" id="load-focus"></div>
-            </section>
-
-            <div id="error"></div>
-        </main>
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p data-i18n="loading.message">Analyzing your Garmin data with Claude AI...</p>
     </div>
 
-    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
-</body>
-</html>
+    <main id="content" class="main-content" style="display: none;">
+        <section class="card hero-card">
+            <div class="hero-grid">
+                <div class="hero-plan">
+                    <h2 data-i18n="workout.heading">💪 Suggested Workout</h2>
+                    <div class="recommendation-badge" id="recommendation-badge">--</div>
+                    <div class="workout-type" id="workout-type">--</div>
+                    <div class="workout-description" id="workout-description">--</div>
+                    <div class="workout-meta hero-meta">
+                        <div class="meta-item">
+                            <div class="meta-label" data-i18n="workout.duration">Duration</div>
+                            <div class="meta-value" id="workout-duration">-- min</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label" data-i18n="workout.intensity">Intensity</div>
+                            <div class="meta-value" id="workout-intensity">-- / 10</div>
+                        </div>
+                    </div>
+                    <div class="hero-rationale">
+                        <strong data-i18n="workout.rationale_heading">Why this workout?</strong>
+                        <span id="workout-rationale">--</span>
+                    </div>
+                </div>
+                <div class="hero-readiness">
+                    <h2 data-i18n="readiness.heading">Today's Readiness</h2>
+                    <div class="readiness-score" id="readiness-score">--</div>
+                    <div class="confidence" id="confidence-badge">Confidence: --</div>
+                    <div class="trend-wrapper">
+                        <span class="trend-title" data-i18n="trend.title">7-day trend</span>
+                        <div class="trend-chart" id="readiness-trend" aria-label="7-day readiness trend chart">
+                            <span class="trend-empty" data-i18n="trend.need_more">Need more history</span>
+                        </div>
+                    </div>
+                    <div class="metric-row">
+                        <div class="metric-chip" id="acwr-badge" style="display: none;"></div>
+                        <div class="metric-chip" id="load-summary-count" data-i18n="summary.activities">Activities · --</div>
+                        <div class="metric-chip" id="load-summary-distance" data-i18n="summary.distance">Distance · -- km</div>
+                        <div class="metric-chip" id="load-summary-duration" data-i18n="summary.duration">Time · -- min</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="panel-grid">
+            <section class="card factors-card">
+                <h2 data-i18n="factors.heading">✅ Key Factors</h2>
+                <div id="key-factors"></div>
+            </section>
+            <section class="card tips-card">
+                <h2 data-i18n="tips.heading">💡 Recovery Tips</h2>
+                <div id="recovery-tips"></div>
+            </section>
+        </div>
+
+        <section class="card red-flags-card" id="red-flags-section" style="display: none;">
+            <h2 data-i18n="red_flags.heading">⚠️ Things to Watch</h2>
+            <div id="red-flags"></div>
+        </section>
+
+        <section class="card reasoning-card">
+            <h2 data-i18n="analysis.heading">🤖 AI Analysis</h2>
+            <div class="reasoning-text" id="ai-reasoning">--</div>
+        </section>
+
+        <section class="card metrics-card" id="enhanced-metrics-card" style="display: none;">
+            <h2 data-i18n="enhanced.heading">🔬 Enhanced Recovery Metrics</h2>
+            <div class="enhanced-metrics">
+                <div class="enhanced-metric">
+                    <div class="enhanced-label" data-i18n="enhanced.training_readiness">Training Readiness</div>
+                    <div class="enhanced-value" id="garmin-readiness">--</div>
+                </div>
+                <div class="enhanced-metric">
+                    <div class="enhanced-label" data-i18n="enhanced.vo2_max">VO₂ Max</div>
+                    <div class="enhanced-value" id="vo2-max">--</div>
+                </div>
+                <div class="enhanced-metric">
+                    <div class="enhanced-label" data-i18n="enhanced.training_status">Training Status</div>
+                    <div class="enhanced-value" id="training-status">--</div>
+                </div>
+                <div class="enhanced-metric">
+                    <div class="enhanced-label" data-i18n="enhanced.spo2">Blood Oxygen</div>
+                    <div class="enhanced-value" id="spo2">--</div>
+                </div>
+                <div class="enhanced-metric">
+                    <div class="enhanced-label" data-i18n="enhanced.respiration">Respiration</div>
+                    <div class="enhanced-value" id="respiration">--</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card metrics-card" id="extended-signals-card" style="display: none;">
+            <h2 data-i18n="extended.heading">🧭 Additional Signals</h2>
+            <div class="extended-signals-meta" id="extended-signal-badges"></div>
+            <div class="extended-load-focus" id="load-focus"></div>
+        </section>
+
+        <div id="error"></div>
+    </main>
+</div>
+
+<div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
+{% endblock %}
