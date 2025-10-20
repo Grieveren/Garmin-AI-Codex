@@ -23,6 +23,8 @@ An intelligent training assistant that analyzes Garmin fitness data using Claude
 - ✅ Scheduler job (Garmin sync + AI readiness) via APScheduler (cron-friendly)
 - ✅ HRV baseline tracking and ACWR calculation
 
+**📋 Project Roadmap:** See [ROADMAP.md](./ROADMAP.md) for detailed implementation phases, priorities, and future enhancements.
+
 ## Quick Start
 
 ### 1. Installation

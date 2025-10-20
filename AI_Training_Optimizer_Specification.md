@@ -1953,70 +1953,31 @@ See `requirements.txt` for the authoritative, pinned package list. Last verified
 
 ---
 
-## 🎯 Priority Implementation Order
+## 🎯 Project Status & Roadmap
 
-Focus on Weeks 1-4 to ship the MVP; treat Week 5+ items as backlog features once the core loop is proven.
+**Current Status:** MVP ~90% Complete (Core features done, automation in progress)
 
-### Week 1: Core Data Pipeline ✅ COMPLETE
-1. ✅ Garmin data fetching (garminconnect 0.2.30)
-2. ✅ MFA authentication with web UI (/manual/mfa)
-3. ✅ Token caching in .garmin_tokens/ directory
-4. ✅ Manual sync functionality tested and working
-5. ✅ API data availability fully documented (72 methods tested)
-6. ⚠️ Database models minimal (needs expansion for Phase 2)
+For detailed implementation roadmap, timeline, and future enhancements, see **[ROADMAP.md](./ROADMAP.md)**.
 
-### Week 2: AI Intelligence (CRITICAL) ✅ COMPLETE (Core Features - 2025-10-19)
-1. ✅ Claude AI integration (claude-sonnet-4-5-20250929)
-2. ✅ Daily readiness analysis with Phase 1 Enhanced Metrics
-3. ✅ **Activity type differentiation** (high/moderate/low impact classification)
-4. ✅ **Nuanced recovery recommendations** (yoga-after-run vs run-after-run intelligence)
-5. ✅ Recommendation generation with workout suggestions
-6. ✅ **Externalized prompts & configuration** (`app/config/prompts.yaml`, `app/prompts/`)
-7. ✅ **Multi-language support** (English and German)
-8. ⚠️ Basic training plan creation (backlog)
+### Quick Summary
 
-### Week 3: User Interface ✅ COMPLETE (Core Features - 2025-10-20)
-1. ✅ API endpoints (`/api/recommendations/today`, `/manual/sync/now`)
-2. ✅ **Recommendation-first dashboard** (redesigned 2025-10-20)
-3. ✅ **Custom styling and interactivity** (`app/static/css/dashboard.css`, `app/static/js/dashboard.js`)
-4. ✅ Today's training view with AI recommendation hero section
-5. ✅ Enhanced Recovery Metrics display (Phase 1 metrics)
-6. ✅ **Activity breakdown visualization** (high/moderate/low impact)
-7. ✅ **Responsive design** with mobile support
-8. ⚠️ Training plan display (not implemented)
-9. ⚠️ AI chat interface with streaming (not implemented)
+| Phase | Status | Completion |
+|-------|--------|-----------|
+| Phase 1: Foundation (Garmin API, Database) | ✅ Complete | 100% |
+| Phase 2: AI Engine (Activity Classification, Multi-language) | ✅ Complete | 100% |
+| Phase 3: Web Interface (Recommendation-first Dashboard) | ✅ Complete | 95% |
+| Phase 4: Automation (Scheduler, Notifications) | 🟡 In Progress | 70% |
+| Phase 5: Advanced Features (Analytics, Chat, Integrations) | ⚠️ Backlog | 10% |
 
-### Week 4: Automation
-1. 🟡 Scheduler scaffold with locking in place (run_scheduler.py placeholder job)
-2. ⚠️ Automatic AI analysis (pending integration with scheduler)
-3. ⚠️ Email notifications
-4. ⚠️ Plan adaptation
+### Immediate Priorities
+**Note:** Email/SMS notifications deferred to Phase 5 (mobile app with push notifications)
 
-### Week 5+: Enhancement (Backlog after MVP)
-1. Advanced analytics
-2. Predictive modeling
-3. Mobile optimization
-4. Additional integrations
+1. **Alert detection system** - Overtraining, illness, and injury risk detection
+2. **Plan adaptation logic** - Automatic workout rescheduling based on readiness
+3. **Production hardening** - Logging, monitoring, security, automated backups
+4. **Testing & documentation** - Integration tests, API docs, deployment guide
 
----
-
-## 💡 Future Enhancements
-
-### Phase 2 Features
-- Integration with other platforms (Strava, TrainingPeaks)
-- Nutrition tracking and recommendations
-- Weather data integration
-- Race performance analysis
-- Training partner features
-- Social sharing capabilities
-
-### Phase 3 Features
-- Mobile app (React Native)
-- Wearable app (Garmin Connect IQ)
-- Voice assistant integration
-- Video coaching library
-- Community features
-- Coach collaboration tools
+See [ROADMAP.md](./ROADMAP.md) for complete details on implementation phases, technical debt, success metrics, and future enhancements.
 
 ---
 
