@@ -58,6 +58,19 @@ function initializeControls() {
         dateRangeSelect.value = savedRange;
         state.dateRange = parseInt(savedRange);
     }
+
+    // Restore UI state if available
+    const savedState = window.UIState?.load('insights');
+    if (savedState) {
+        state.dateRange = savedState.dateRange || state.dateRange;
+        state.selectedMetric = savedState.selectedMetric || state.selectedMetric;
+        if (dateRangeSelect && savedState.dateRange) {
+            dateRangeSelect.value = savedState.dateRange.toString();
+        }
+        if (metricSelector && savedState.selectedMetric) {
+            metricSelector.value = savedState.selectedMetric;
+        }
+    }
 }
 
 /**
@@ -82,6 +95,15 @@ function handleDateRangeChange(event) {
         customInputs.style.display = 'none';
         state.dateRange = parseInt(value);
         localStorage.setItem('analytics-date-range', value);
+
+        // Save UI state
+        if (window.UIState) {
+            window.UIState.save('insights', {
+                dateRange: state.dateRange,
+                selectedMetric: state.selectedMetric
+            });
+        }
+
         debounce(() => loadAllCharts(), 300)();
     }
 }
@@ -150,14 +172,18 @@ async function loadReadinessTrendChart() {
     showChartLoading(chartDiv, true);
 
     try {
-        const params = buildQueryParams();
-        const response = await fetch(`/api/analytics/readiness-trend?${params}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const params = {};
+        if (state.customStartDate && state.customEndDate) {
+            params.start_date = state.customStartDate;
+            params.end_date = state.customEndDate;
+        } else {
+            params.days = state.dateRange;
         }
 
-        const data = await response.json();
+        const data = await window.cachedFetch('/api/analytics/readiness-trend', {
+            params: params,
+            ttlMinutes: 60
+        });
 
         if (!data || data.length === 0) {
             showEmptyState(chartDiv, 'No readiness data available');
@@ -272,14 +298,10 @@ async function loadTrainingLoadChart() {
     showChartLoading(chartDiv, true);
 
     try {
-        const params = new URLSearchParams({ days: state.dateRange });
-        const response = await fetch(`/api/analytics/training-load?${params}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = await window.cachedFetch('/api/analytics/training-load', {
+            params: { days: state.dateRange },
+            ttlMinutes: 60
+        });
 
         if (!data || data.length === 0) {
             showEmptyState(chartDiv, 'No training load data available');
@@ -393,14 +415,18 @@ async function loadSleepPerformanceChart() {
     showChartLoading(chartDiv, true);
 
     try {
-        const params = buildQueryParams();
-        const response = await fetch(`/api/analytics/sleep-performance?${params}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const params = {};
+        if (state.customStartDate && state.customEndDate) {
+            params.start_date = state.customStartDate;
+            params.end_date = state.customEndDate;
+        } else {
+            params.days = state.dateRange;
         }
 
-        const data = await response.json();
+        const data = await window.cachedFetch('/api/analytics/sleep-performance', {
+            params: params,
+            ttlMinutes: 60
+        });
 
         if (!data || data.length === 0) {
             showEmptyState(chartDiv, 'No sleep performance data available');
@@ -485,14 +511,18 @@ async function loadActivityBreakdownChart() {
     showChartLoading(chartDiv, true);
 
     try {
-        const params = buildQueryParams();
-        const response = await fetch(`/api/analytics/activity-breakdown?${params}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const params = {};
+        if (state.customStartDate && state.customEndDate) {
+            params.start_date = state.customStartDate;
+            params.end_date = state.customEndDate;
+        } else {
+            params.days = state.dateRange;
         }
 
-        const data = await response.json();
+        const data = await window.cachedFetch('/api/analytics/activity-breakdown', {
+            params: params,
+            ttlMinutes: 60
+        });
 
         if (!data || Object.keys(data).length === 0) {
             showEmptyState(chartDiv, 'No activity data available');
@@ -565,16 +595,19 @@ async function loadRecoveryCorrelationChart() {
     showChartLoading(chartDiv, true);
 
     try {
-        const params = buildQueryParams();
-        params.append('metric', state.selectedMetric);
-
-        const response = await fetch(`/api/analytics/recovery-correlation?${params}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const params = {};
+        if (state.customStartDate && state.customEndDate) {
+            params.start_date = state.customStartDate;
+            params.end_date = state.customEndDate;
+        } else {
+            params.days = state.dateRange;
         }
+        params.metric = state.selectedMetric;
 
-        const result = await response.json();
+        const result = await window.cachedFetch('/api/analytics/recovery-correlation', {
+            params: params,
+            ttlMinutes: 60
+        });
         const data = result.data || [];
 
         if (data.length === 0) {
@@ -652,11 +685,15 @@ async function loadRecoveryCorrelationChart() {
 async function updateWeeklySummary() {
     try {
         // Fetch last 7 days of data
-        const params = new URLSearchParams({ days: 7 });
-
         const [activityData, readinessData] = await Promise.all([
-            fetch(`/api/analytics/activity-breakdown?${params}`).then(r => r.json()),
-            fetch(`/api/analytics/readiness-trend?${params}`).then(r => r.json()),
+            window.cachedFetch('/api/analytics/activity-breakdown', {
+                params: { days: 7 },
+                ttlMinutes: 60
+            }),
+            window.cachedFetch('/api/analytics/readiness-trend', {
+                params: { days: 7 },
+                ttlMinutes: 60
+            })
         ]);
 
         // Calculate totals

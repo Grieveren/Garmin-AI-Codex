@@ -48,19 +48,15 @@ async function loadCurrentPlan() {
     try {
         showLoading();
 
-        const response = await fetch('/api/training/plans/current');
-
-        if (response.status === 404) {
-            // No active plan
-            showNoPlanView();
-            return;
-        }
-
-        if (!response.ok) {
-            throw new Error(`Failed to load plan: ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        const data = await window.cachedFetch('/api/training/plans/current', {
+            ttlMinutes: 30,
+            ignoreErrors: true
+        }).catch(error => {
+            if (error.message.includes('404')) {
+                return null;
+            }
+            throw error;
+        });
 
         if (!data.plan) {
             showNoPlanView();

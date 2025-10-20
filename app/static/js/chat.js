@@ -313,10 +313,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loadChatHistory() {
         try {
-            const stored = localStorage.getItem(STORAGE_KEY);
+            // Load from UIState if available
+            const state = window.UIState?.load('chat');
+            const stored = state?.messages || localStorage.getItem(STORAGE_KEY);
             if (!stored) return;
 
-            const messages = JSON.parse(stored);
+            const messages = typeof stored === 'string' ? JSON.parse(stored) : stored;
             if (!Array.isArray(messages) || messages.length === 0) return;
 
             hideEmptyState();
@@ -346,10 +348,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadReadinessScore() {
         try {
-            const response = await fetch('/api/recommendations/today');
-            if (!response.ok) return;
-
-            const data = await response.json();
+            const data = await window.cachedFetch('/api/recommendations/today', {
+                ttlMinutes: 60
+            });
             if (data.readiness_score && readinessScoreEl) {
                 readinessScoreEl.textContent = data.readiness_score;
 

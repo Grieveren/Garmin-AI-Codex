@@ -73,6 +73,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Active link highlighting
     highlightActiveLink();
 
+    // Cache management - Shift+Click refresh button to clear cache
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', (e) => {
+            if (e.shiftKey && window.dataCache) {
+                // Shift+Click = hard refresh (clear cache)
+                window.dataCache.clear();
+                console.log('Cache cleared!');
+                window.location.reload();
+            }
+        });
+    }
+
     function applyStoredTheme() {
         const stored = localStorage.getItem(THEME_KEY);
         const isDark = stored === 'dark';

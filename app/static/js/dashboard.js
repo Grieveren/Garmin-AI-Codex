@@ -248,6 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     void loadRecommendation();
     triggerAutoSync();
 
+    // Trigger data prefetch for other pages (after dashboard loads)
+    if (window.dataPrefetcher) {
+        window.dataPrefetcher.initPrefetch();
+    }
+
     async function loadRecommendation() {
         const loadingDiv = document.getElementById('loading');
         const contentDiv = document.getElementById('content');
@@ -267,17 +272,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/recommendations/today', {
+            const data = await window.cachedFetch('/api/recommendations/today', {
+                ttlMinutes: 60,
                 headers: {
-                    'Cache-Control': 'no-cache',
                     'Accept-Language': getAcceptLanguageHeader(),
                 },
             });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
             handleRecommendationData(data);
 
             if (loadingDiv) {
