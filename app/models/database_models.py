@@ -46,6 +46,7 @@ class DailyMetric(Base):
     spo2_avg: Mapped[float | None] = mapped_column(Float, nullable=True)  # Blood oxygen % average
     spo2_min: Mapped[float | None] = mapped_column(Float, nullable=True)  # Blood oxygen % minimum
     respiration_avg: Mapped[float | None] = mapped_column(Float, nullable=True)  # Breaths per minute
+    recovery_time_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Hours until ready for next quality workout (from Garmin)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

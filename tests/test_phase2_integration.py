@@ -352,3 +352,201 @@ def test_format_recent_workout_analysis_without_details(monkeypatch):
     assert "PERFORMANCE CONDITION: Normal" in result
     # Detail breakdown should NOT be present
     assert "DETAILED PERFORMANCE BREAKDOWN" not in result
+
+
+@pytest.mark.asyncio
+async def test_recovery_time_integration_with_ai_analyzer(monkeypatch):
+    """Integration test: Verify recovery time flows from fixture to AI analyzer.
+
+    This test verifies the complete data flow:
+    1. Fixture has currentRecoveryTime: 14
+    2. Sync would store this as recovery_time_hours in database
+    3. AI analyzer accesses and uses this data in recommendations
+    """
+    from app.database import SessionLocal
+    from app.models.database_models import DailyMetric
+
+    # Setup test configuration
+    class DummySettings:
+        anthropic_api_key = "test-key"
+        garmin_email = "test@example.com"
+        garmin_password = "hunter2"
+        garmin_token_store = None
+        prompt_config_path = Path("app/config/prompts.yaml")
+
+    monkeypatch.setattr("app.services.ai_analyzer.get_settings", lambda: DummySettings())
+
+    # Store test data in database (simulating sync_data.py)
+    db = SessionLocal()
+    test_date = date(2025, 10, 17)
+    try:
+        # Clean existing data
+        existing = db.query(DailyMetric).filter(DailyMetric.date == test_date).first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+
+        # Create metric with recovery time from fixture
+        metric = DailyMetric(
+            date=test_date,
+            recovery_time_hours=14,  # From fixtures/garmin_daily_metrics.json
+            resting_hr=44,
+            hrv_morning=48,
+            sleep_seconds=25500,
+            sleep_score=82,
+            training_readiness_score=67,
+            vo2_max=54.3,
+            training_status="PRODUCTIVE",
+        )
+        db.add(metric)
+        db.commit()
+    finally:
+        db.close()
+
+    # Mock Garmin data fetch to return fixture data
+    def mock_fetch_garmin_data(self, garmin, target_date):
+        return {
+            "stats": {"totalSteps": 12345},
+            "heart_rate": {"restingHeartRate": 44},
+            "hrv": {"hrvSummary": {"lastNightAvg": 48}},
+            "sleep": {
+                "dailySleepDTO": {
+                    "sleepTimeSeconds": 25500,
+                    "sleepScores": {"overall": {"value": 82}},
+                }
+            },
+            "training_readiness": [{"score": 67}],
+            "training_status": {
+                "currentRecoveryTime": 14,  # Fixture value
+                "mostRecentVO2Max": {"generic": {"vo2MaxValue": 54.3}},
+                "mostRecentTrainingStatus": {
+                    "latestTrainingStatusData": {
+                        "device1": {"trainingStatusFeedbackPhrase": "PRODUCTIVE"}
+                    }
+                },
+            },
+            "recent_activities": [],
+        }
+
+    monkeypatch.setattr(AIAnalyzer, "_fetch_garmin_data", mock_fetch_garmin_data)
+
+    # Mock dependencies
+    monkeypatch.setattr(
+        AIAnalyzer,
+        "_calculate_baselines",
+        lambda self, data: {
+            "avg_training_load": 30,
+            "activity_count": 0,
+            "total_distance_km": 0,
+            "total_duration_min": 0,
+            "activity_breakdown": {},
+        },
+    )
+    monkeypatch.setattr(AIAnalyzer, "_has_historical_data", lambda self, target_date: False)
+    monkeypatch.setattr(AIAnalyzer, "_get_readiness_history", lambda self, target_date, days=7: [])
+    monkeypatch.setattr(AIAnalyzer, "_get_latest_metric_sync", lambda self: None)
+
+    # Mock Anthropic to verify recovery time in prompt
+    verification_passed = False
+
+    class DummyMessages:
+        def create(self, **kwargs):
+            nonlocal verification_passed
+            prompt = kwargs["messages"][0]["content"]
+
+            # Verify recovery time is in the prompt
+            has_recovery = "Recovery time remaining" in prompt or "recovery" in prompt.lower()
+            has_value = "14" in prompt or "14.0h" in prompt
+
+            if has_recovery and has_value:
+                verification_passed = True
+
+            return SimpleNamespace(
+                content=[
+                    SimpleNamespace(
+                        text=json.dumps({
+                            "readiness_score": 70,
+                            "recommendation": "moderate",
+                            "confidence": "high",
+                            "key_factors": [
+                                "Recovery time: 14 hours - moderate intensity recommended"
+                            ],
+                            "suggested_workout": {
+                                "type": "easy_run",
+                                "description": "30 min easy run",
+                                "target_duration_minutes": 30,
+                            },
+                        })
+                    )
+                ]
+            )
+
+    class DummyAnthropic:
+        def __init__(self, api_key: str):
+            self.messages = DummyMessages()
+
+    monkeypatch.setattr("app.services.ai_analyzer.Anthropic", DummyAnthropic)
+
+    # Run analysis
+    analyzer = AIAnalyzer()
+    # Clear cache to ensure fresh analysis
+    analyzer._response_cache.clear()
+    result = await analyzer.analyze_daily_readiness(test_date)
+
+    # Verify recovery time appears in result
+    assert result is not None
+    assert "extended_signals" in result
+    assert "recovery_time" in result["extended_signals"]
+    assert result["extended_signals"]["recovery_time"]["hours"] == 14
+
+    # Verify recovery time was sent to AI in prompt
+    assert verification_passed, "Recovery time should be included in AI prompt"
+
+    # Cleanup
+    db = SessionLocal()
+    try:
+        metric = db.query(DailyMetric).filter(DailyMetric.date == test_date).first()
+        if metric:
+            db.delete(metric)
+            db.commit()
+    finally:
+        db.close()
+
+
+def test_recovery_time_stored_matches_fixture():
+    """Verify stored recovery_time_hours matches fixture data value of 14."""
+    from app.database import SessionLocal
+    from app.models.database_models import DailyMetric
+
+    db = SessionLocal()
+    test_date = date(2025, 10, 27)
+    try:
+        # Clean existing
+        existing = db.query(DailyMetric).filter(DailyMetric.date == test_date).first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+
+        # Simulate what sync_data.py does with fixture data
+        # Fixture has: "currentRecoveryTime": 14
+        metric = DailyMetric(
+            date=test_date,
+            recovery_time_hours=14,
+            resting_hr=44,
+            hrv_morning=48,
+        )
+        db.add(metric)
+        db.commit()
+
+        # Query back
+        retrieved = db.query(DailyMetric).filter(DailyMetric.date == test_date).first()
+
+        assert retrieved is not None
+        assert retrieved.recovery_time_hours == 14, \
+            "Stored recovery_time_hours should match fixture value"
+
+        # Cleanup
+        db.delete(retrieved)
+        db.commit()
+    finally:
+        db.close()

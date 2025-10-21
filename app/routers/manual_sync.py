@@ -239,6 +239,18 @@ def _fetch_and_save_metrics(garmin: GarminService, db: SessionLocal, target_date
                             metrics["training_status"] = device_data.get("trainingStatusFeedbackPhrase")
                             break
 
+    # Recovery Time - from training_readiness API (in minutes, convert to hours)
+    # training_readiness returns array, use first/most recent entry
+    if training_readiness and isinstance(training_readiness, list) and len(training_readiness) > 0:
+        if isinstance(training_readiness[0], dict) and "recoveryTime" in training_readiness[0]:
+            recovery_minutes = training_readiness[0].get("recoveryTime")
+            # Validate type and ensure non-negative
+            if isinstance(recovery_minutes, (int, float)) and recovery_minutes >= 0:
+                # Convert minutes to hours (round to nearest hour)
+                metrics["recovery_time_hours"] = int(round(recovery_minutes / 60))
+            elif isinstance(recovery_minutes, str) and recovery_minutes.isdigit():
+                metrics["recovery_time_hours"] = int(round(int(recovery_minutes) / 60))
+
     # SPO2 (Blood Oxygen) - Garmin uses different keys
     if spo2 and isinstance(spo2, dict):
         # Keys are at root level: avgSleepSpO2, lowestSpO2

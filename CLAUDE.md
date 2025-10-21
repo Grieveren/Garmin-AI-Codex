@@ -237,6 +237,7 @@ pytest -v tests/test_garmin_service.py
 python scripts/initial_setup.py              # Initialize schema
 python scripts/backfill_data.py --days 90   # Backfill historical data
 python scripts/migrate_phase1_metrics.py     # Phase 1 migration
+python scripts/migrate_recovery_time.py      # Add recovery time tracking
 ```
 
 ---
@@ -301,7 +302,7 @@ python scripts/migrate_phase1_metrics.py     # Phase 1 migration
 ### Database Models (`app/models/database_models.py`)
 
 Key tables (refer to AI_Training_Optimizer_Specification.md for full schema):
-- `daily_metrics` - Steps, HR, HRV, sleep, body battery
+- `daily_metrics` - Steps, HR, HRV, sleep, body battery, recovery time (hours until ready for next quality workout)
 - `sleep_sessions` - Detailed sleep stage data
 - `activities` - Garmin workouts with training effect/load
 - **`activity_details`** - Detailed activity data (splits, HR zones, weather) with derived metrics

@@ -1802,6 +1802,7 @@ class AIAnalyzer:
             for item in training_readiness:
                 if isinstance(item, dict):
                     for key in (
+                        "recoveryTime",  # Actual Garmin API key (in minutes)
                         "recommendedRecoveryTimeInHours",
                         "recommendedRecoveryTimeInMinutes",
                         "recoveryTimeInHours",
@@ -1809,10 +1810,11 @@ class AIAnalyzer:
                     ):
                         value = item.get(key)
                         if value is not None:
-                            hint = "minutes" if "minute" in key.lower() else "hours" if "hour" in key.lower() else None
+                            hint = "minutes" if ("minute" in key.lower() or key == "recoveryTime") else "hours" if "hour" in key.lower() else None
                             candidate_values.append((value, hint))
         elif isinstance(training_readiness, dict):
             for key in (
+                "recoveryTime",  # Actual Garmin API key (in minutes)
                 "recommendedRecoveryTimeInHours",
                 "recommendedRecoveryTimeInMinutes",
                 "recoveryTimeInHours",
@@ -1820,7 +1822,7 @@ class AIAnalyzer:
             ):
                 value = training_readiness.get(key)
                 if value is not None:
-                    hint = "minutes" if "minute" in key.lower() else "hours" if "hour" in key.lower() else None
+                    hint = "minutes" if ("minute" in key.lower() or key == "recoveryTime") else "hours" if "hour" in key.lower() else None
                     candidate_values.append((value, hint))
 
         hours = None
