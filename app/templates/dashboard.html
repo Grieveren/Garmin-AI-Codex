@@ -25,9 +25,35 @@
         </div>
     </header>
 
-    <div id="loading" class="loading">
-        <div class="spinner"></div>
-        <p data-i18n="loading.message">Analyzing your Garmin data with Claude AI...</p>
+    <div id="loading" class="loading-container" role="status">
+        <div class="loading-content">
+            <div class="loading-stages" role="list" aria-label="Loading stages">
+                <div class="stage stage-pending" data-stage="checking" role="listitem">
+                    <div class="stage-icon" aria-hidden="true">⏱️</div>
+                    <div class="stage-text" data-i18n="loading.checking">Checking data freshness</div>
+                </div>
+                <div class="stage stage-pending" data-stage="syncing" role="listitem">
+                    <div class="stage-icon" aria-hidden="true">⬇️</div>
+                    <div class="stage-text" data-i18n="loading.syncing">Syncing data with Garmin</div>
+                </div>
+                <div class="stage stage-pending" data-stage="analyzing" role="listitem">
+                    <div class="stage-icon" aria-hidden="true">🤖</div>
+                    <div class="stage-text" data-i18n="loading.analyzing">Analyzing with Claude AI</div>
+                </div>
+            </div>
+
+            <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Loading progress" aria-valuetext="0% - Preparing your dashboard">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <div class="loading-message" id="loading-message" data-i18n="loading.preparing" aria-live="assertive" aria-atomic="true">Preparing your dashboard...</div>
+
+            <div class="error-container" id="loading-error" role="alert" style="display: none;">
+                <div class="error-icon" aria-hidden="true">⚠️</div>
+                <p class="error-text" id="error-text"></p>
+                <button class="retry-btn" id="retry-btn" data-i18n="error.retry">Retry</button>
+            </div>
+        </div>
     </div>
 
     <main id="content" class="main-content" style="display: none;">
@@ -130,7 +156,7 @@
     </main>
 </div>
 
-<div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+<div id="toast-container" aria-live="assertive" aria-atomic="true"></div>
 {% endblock %}
 
 {% block extra_js %}

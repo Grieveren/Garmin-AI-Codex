@@ -221,23 +221,203 @@ header.header {
     background: rgba(229, 62, 62, 0.22);
 }
 
-.loading {
+/* Loading Container */
+.loading-container {
     background: var(--surface);
     border-radius: 16px;
     padding: 3rem 2rem;
-    text-align: center;
-    color: var(--text-secondary);
     box-shadow: var(--card-shadow);
 }
 
-.spinner {
-    border: 4px solid rgba(255, 255, 255, 0.2);
-    border-top: 4px solid var(--accent-primary);
+.loading-content {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Loading Stages */
+.loading-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+.stage {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: var(--surface-alt);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.stage-icon {
+    font-size: 1.5rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stage-text {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+/* Stage States */
+.stage-pending {
+    opacity: 0.5;
+}
+
+.stage-pending .stage-icon {
+    filter: grayscale(1);
+}
+
+.stage-active {
+    border-color: var(--accent-primary);
+    background: rgba(90, 103, 216, 0.1);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.stage-active .stage-text {
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.stage-active .stage-icon {
+    animation: bounce 1s ease-in-out infinite;
+}
+
+.stage-complete {
+    opacity: 1;
+    border-color: var(--accent-success);
+    background: rgba(72, 187, 120, 0.1);
+}
+
+.stage-complete .stage-text {
+    color: var(--accent-success);
+}
+
+.stage-complete .stage-icon::after {
+    content: '✓';
+    position: absolute;
+    font-size: 0.8rem;
+    background: var(--accent-success);
+    color: white;
     border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 1.5rem;
-    animation: spin 1s linear infinite;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 16px;
+    margin-top: -8px;
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--surface-alt);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), #8891ff, var(--accent-primary));
+    background-size: 200% 100%;
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.5s ease;
+    animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Loading Message */
+.loading-message {
+    text-align: center;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+/* Error Container */
+.error-container {
+    text-align: center;
+    padding: 2rem;
+    background: rgba(229, 62, 62, 0.1);
+    border: 2px solid var(--accent-danger);
+    border-radius: 12px;
+    margin-top: 1.5rem;
+}
+
+.error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.error-text {
+    color: var(--accent-danger);
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.retry-btn {
+    background: var(--accent-danger);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+    background: #a82828;
+    transform: translateY(-2px);
+}
+
+.retry-btn:active {
+    transform: translateY(0);
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-4px);
+    }
 }
 
 @keyframes spin {
@@ -891,5 +1071,37 @@ header.header {
 
     .header {
         padding: 1rem;
+    }
+}
+
+/* Accessibility: Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    /* Disable all animations for users who prefer reduced motion */
+    .stage-active,
+    .stage-active .stage-icon,
+    .progress-fill,
+    .toast,
+    .card,
+    .control-btn {
+        animation: none !important;
+        transition: opacity 0.2s ease, background-color 0.2s ease !important;
+    }
+
+    /* Use static gradient for progress bar */
+    .progress-fill {
+        background: var(--accent-primary);
+        background-size: 100% 100%;
+    }
+
+    /* Reduce transform animations */
+    .card:hover,
+    .control-btn:hover,
+    .retry-btn:hover {
+        transform: none !important;
+    }
+
+    /* Keep opacity transitions but remove motion */
+    .toast--visible {
+        transition: opacity 0.2s ease;
     }
 }

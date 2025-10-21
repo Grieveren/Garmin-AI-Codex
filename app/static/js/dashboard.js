@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const THEME_KEY = 'dashboard-theme';
     const LANGUAGE_KEY = 'dashboard-language';
     const FALLBACK_LANGUAGE = 'en';
+    const TRANSITION_DELAY_MS = 200;
+    const COMPLETION_DISPLAY_MS = 500;
 
     const translations = {
         en: {
@@ -99,6 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
             'acwr.status.elevated': 'Elevated',
             'acwr.status.warning': 'Warning',
             'acwr.status.unknown': 'Unknown',
+            'loading.checking': 'Checking data freshness...',
+            'loading.syncing': 'Syncing data with Garmin...',
+            'loading.analyzing': 'Analyzing with Claude AI...',
+            'loading.complete': 'Complete!',
+            'loading.preparing': 'Preparing your dashboard...',
+            'error.retry': 'Retry',
+            'error.refresh_page': 'Refresh Page',
+            'error.init_failed': 'Dashboard initialization failed: {error}',
+            'error.retry_attempt': 'Retry attempt {current}/{max}',
+            'error.max_retries': 'Maximum retries exceeded. Please refresh the page.',
+            'error.unknown': 'Unknown error',
         },
         de: {
             'meta.title': 'KI Trainings-Optimierer - Dashboard',
@@ -188,12 +201,34 @@ document.addEventListener('DOMContentLoaded', () => {
             'acwr.status.elevated': 'Erhöht',
             'acwr.status.warning': 'Warnung',
             'acwr.status.unknown': 'Unbekannt',
+            'loading.checking': 'Prüfe Datenaktualität...',
+            'loading.syncing': 'Synchronisiere Daten mit Garmin...',
+            'loading.analyzing': 'Analysiere mit Claude AI...',
+            'loading.complete': 'Fertig!',
+            'loading.preparing': 'Bereite dein Dashboard vor...',
+            'error.retry': 'Erneut versuchen',
+            'error.refresh_page': 'Seite aktualisieren',
+            'error.init_failed': 'Dashboard-Initialisierung fehlgeschlagen: {error}',
+            'error.retry_attempt': 'Versuch {current}/{max}',
+            'error.max_retries': 'Maximale Anzahl an Versuchen erreicht. Bitte Seite aktualisieren.',
+            'error.unknown': 'Unbekannter Fehler',
         },
     };
 
     const ACCEPT_LANGUAGE_HEADERS = {
         en: 'en-US,en;q=0.9',
         de: 'de-DE,de;q=0.9,en;q=0.5',
+    };
+
+    // Logger utility for production-safe logging
+    const logger = {
+        debug: (msg, ...args) => {
+            if (window.DEBUG_MODE) {
+                console.log(msg, ...args);
+            }
+        },
+        warn: (msg, ...args) => console.warn(msg, ...args),
+        error: (msg, ...args) => console.error(msg, ...args)
     };
 
     const dateLocales = {
@@ -211,6 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let latestLoadSummary = null;
     let latestExtendedSignals = null;
     let syncInProgress = false;
+    let initRetryCount = 0;
+    const MAX_INIT_RETRIES = 3;
+    let lastRetryTimestamp = 0;
+    const RETRY_COOLDOWN_MS = 2000; // 2 second cooldown
+    const activeAbortControllers = new Set();
 
     function getAcceptLanguageHeader(lang = currentLanguage) {
         return ACCEPT_LANGUAGE_HEADERS[lang] ?? lang;
@@ -230,6 +270,144 @@ document.addEventListener('DOMContentLoaded', () => {
         return trimmed;
     }
 
+    // Ensure cache system is available with fallback
+    if (typeof window.cachedFetch !== 'function') {
+        logger.warn('Cache system not loaded, using direct fetch fallback');
+        window.cachedFetch = async function(url, options = {}) {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        };
+    }
+
+    /**
+     * Fetch with timeout protection.
+     * @param {string} url - URL to fetch
+     * @param {object} options - Fetch options
+     * @param {number} timeoutMs - Timeout in milliseconds (default 60000ms = 60s)
+     * @returns {Promise<Response>}
+     */
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 60000) {
+        const controller = new AbortController();
+        activeAbortControllers.add(controller);
+
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        // Merge caller's signal with timeout signal
+        const callerSignal = options.signal;
+        if (callerSignal) {
+            if (callerSignal.aborted) {
+                clearTimeout(timeoutId);
+                activeAbortControllers.delete(controller);
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            callerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            return response;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timeout after ${timeoutMs / 1000} seconds`);
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
+            activeAbortControllers.delete(controller);
+        }
+    }
+
+    /**
+     * Validate and sanitize API response data to prevent XSS and injection attacks.
+     * @param {object} data - Raw API response data
+     * @returns {object} Validated data
+     * @throws {Error} If validation fails
+     */
+    function validateApiResponse(data) {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid API response: expected object');
+        }
+
+        // Validate readiness_score (must be number 0-100)
+        if (typeof data.readiness_score !== 'number' ||
+            !Number.isFinite(data.readiness_score) ||
+            data.readiness_score < 0 ||
+            data.readiness_score > 100) {
+            throw new Error('Invalid readiness_score: must be a number between 0-100');
+        }
+
+        // Validate workout_recommendation object
+        if (data.workout_recommendation && typeof data.workout_recommendation !== 'object') {
+            throw new Error('Invalid workout_recommendation: must be an object');
+        }
+
+        // Validate recent_training_load object
+        if (data.recent_training_load && typeof data.recent_training_load !== 'object') {
+            throw new Error('Invalid recent_training_load: must be an object');
+        }
+
+        // Validate readiness_history array
+        if (data.readiness_history) {
+            if (!Array.isArray(data.readiness_history)) {
+                throw new Error('Invalid readiness_history: must be an array');
+            }
+            data.readiness_history.forEach((item, index) => {
+                if (!item || typeof item !== 'object') {
+                    throw new Error(`Invalid readiness_history[${index}]: must be an object`);
+                }
+                if (typeof item.score !== 'number' || !Number.isFinite(item.score)) {
+                    throw new Error(`Invalid readiness_history[${index}].score: must be a finite number`);
+                }
+            });
+        }
+
+        // Validate string fields that will be displayed
+        const stringFields = [
+            'recommendation',
+            'confidence',
+            'language',
+            'ai_reasoning'
+        ];
+        stringFields.forEach(field => {
+            if (data[field] !== undefined && data[field] !== null && typeof data[field] !== 'string') {
+                throw new Error(`Invalid ${field}: must be a string`);
+            }
+        });
+
+        // Validate array fields
+        const arrayFields = ['key_factors', 'red_flags', 'recovery_tips'];
+        arrayFields.forEach(field => {
+            if (data[field] !== undefined && data[field] !== null) {
+                if (!Array.isArray(data[field])) {
+                    throw new Error(`Invalid ${field}: must be an array`);
+                }
+                data[field].forEach((item, index) => {
+                    if (typeof item !== 'string') {
+                        throw new Error(`Invalid ${field}[${index}]: must be a string`);
+                    }
+                });
+            }
+        });
+
+        // Validate enhanced_metrics if present
+        if (data.enhanced_metrics && typeof data.enhanced_metrics !== 'object') {
+            throw new Error('Invalid enhanced_metrics: must be an object');
+        }
+
+        // Validate extended_signals if present
+        if (data.extended_signals && typeof data.extended_signals !== 'object') {
+            throw new Error('Invalid extended_signals: must be an object');
+        }
+
+        return data;
+    }
+
     applyStoredTheme();
     setLanguage(currentLanguage, { save: false, revalidate: false });
 
@@ -245,39 +423,309 @@ document.addEventListener('DOMContentLoaded', () => {
         void handleManualSync();
     });
 
-    void loadRecommendation();
-    triggerAutoSync();
+    void initializeApp();
+    // triggerAutoSync disabled - handled by initializeApp
 
     // Trigger data prefetch for other pages (after dashboard loads)
     if (window.dataPrefetcher) {
         window.dataPrefetcher.initPrefetch();
     }
 
-    async function loadRecommendation() {
+    // Cleanup active requests on page unload
+    window.addEventListener('pagehide', () => {
+        activeAbortControllers.forEach(controller => {
+            controller.abort();
+        });
+        activeAbortControllers.clear();
+    });
+
+    /**
+     * Initialize the app by checking data staleness and orchestrating sync/load flow.
+     */
+    async function initializeApp() {
+        // Prevent concurrent initialization
+        if (window._initializationInProgress) {
+            logger.debug('Initialization already in progress, skipping');
+            return;
+        }
+
+        // Check retry limit
+        if (initRetryCount >= MAX_INIT_RETRIES) {
+            logger.error('Maximum initialization retries exceeded');
+            showLoadingError(
+                t('error.max_retries'),
+                true, // Disable retry button
+                true  // Show refresh page button
+            );
+            return;
+        }
+
+        window._initializationInProgress = true;
+
         const loadingDiv = document.getElementById('loading');
         const contentDiv = document.getElementById('content');
         const errorDiv = document.getElementById('error');
 
-        if (loadingDiv) {
-            loadingDiv.style.display = 'block';
+        try {
+            // Show loading screen
+            if (loadingDiv) loadingDiv.style.display = 'block';
+            if (contentDiv) contentDiv.style.display = 'none';
+            if (errorDiv) errorDiv.style.display = 'none';
+
+            // Check if data needs syncing
+            updateLoadingStage('checking', 5, t('loading.checking'));
+            const syncStatus = await checkSyncStatus();
+
+            if (syncStatus.needs_sync) {
+                // Data is stale - sync first
+                await performSyncWithProgress();
+            } else {
+                // Data is fresh - skip to analyzing stage smoothly
+                updateLoadingStage('syncing', 50, t('loading.preparing'));
+                await new Promise(resolve => setTimeout(resolve, TRANSITION_DELAY_MS));
+            }
+
+            // Load the recommendation (includes analyzing stage)
+            await loadRecommendation();
+
+            // Success - reset retry count
+            initRetryCount = 0;
+
+        } catch (error) {
+            logger.error('Initialization error:', error);
+            initRetryCount++;
+
+            const errorMessage = error instanceof Error ? error.message : t('error.unknown');
+            const fullMessage = t('error.init_failed', { error: errorMessage });
+
+            showLoadingError(
+                fullMessage,
+                initRetryCount >= MAX_INIT_RETRIES, // Disable retry if max reached
+                initRetryCount >= MAX_INIT_RETRIES  // Show refresh button if max reached
+            );
+        } finally {
+            window._initializationInProgress = false;
         }
-        if (contentDiv) {
-            contentDiv.style.display = 'none';
+    }
+
+    /**
+     * Check the sync status of data.
+     */
+    async function checkSyncStatus() {
+        try {
+            const response = await fetchWithTimeout('/api/health/sync-status', {}, 10000); // 10 second timeout
+            if (!response.ok) {
+                throw new Error(`Failed to check sync status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            logger.error('Error checking sync status:', error);
+            // If status check fails, assume we need to sync to be safe
+            return { needs_sync: true, is_stale: true };
         }
-        if (errorDiv) {
-            errorDiv.style.display = 'none';
+    }
+
+    /**
+     * Perform actual Garmin data sync.
+     */
+    async function performSyncWithProgress() {
+        // Show syncing stage and perform actual sync (no fake delays)
+        updateLoadingStage('syncing', 20, t('loading.syncing'));
+
+        try {
+            const response = await fetchWithTimeout('/manual/sync/now', {
+                method: 'POST',
+                headers: {
+                    'Accept-Language': getAcceptLanguageHeader(),
+                },
+            }, 60000); // 60 second timeout for sync
+
+            if (!response.ok) {
+                throw new Error(`Sync failed: ${response.status} ${response.statusText}`);
+            }
+
+            await response.json();
+            lastSyncIso = new Date().toISOString();
+
+        } catch (error) {
+            logger.error('Sync error:', error);
+            const errorMsg = error instanceof Error ? error.message : t('error.unknown');
+            throw new Error(`Failed to sync data: ${errorMsg}`);
         }
+    }
+
+    /**
+     * Update the loading stage UI.
+     */
+    function updateLoadingStage(stageName, progress, message) {
+        // Update progress bar
+        const progressFill = document.getElementById('progress-fill');
+        const progressBar = progressFill?.parentElement;
+        if (progressFill) {
+            progressFill.style.width = `${progress}%`;
+        }
+        // Update ARIA attributes for accessibility
+        if (progressBar) {
+            progressBar.setAttribute('aria-valuenow', progress.toString());
+            progressBar.setAttribute('aria-valuetext', `${progress}% - ${message}`);
+        }
+
+        // Update message
+        const loadingMessage = document.getElementById('loading-message');
+        if (loadingMessage) {
+            loadingMessage.textContent = message;
+        }
+
+        // Update stage indicators
+        const stages = document.querySelectorAll('.stage');
+        stages.forEach(stageEl => {
+            const stageData = stageEl.getAttribute('data-stage');
+            if (stageData === stageName) {
+                stageEl.classList.remove('stage-pending', 'stage-complete');
+                stageEl.classList.add('stage-active');
+            } else if (shouldMarkComplete(stageData, stageName)) {
+                stageEl.classList.remove('stage-pending', 'stage-active');
+                stageEl.classList.add('stage-complete');
+            }
+        });
+    }
+
+    /**
+     * Determine if a stage should be marked as complete.
+     */
+    function shouldMarkComplete(stageData, currentStage) {
+        const stageOrder = ['checking', 'syncing', 'analyzing'];
+        const currentIndex = stageOrder.indexOf(currentStage);
+        const stageIndex = stageOrder.indexOf(stageData);
+        return stageIndex < currentIndex && stageIndex >= 0;
+    }
+
+    /**
+     * Show loading error with retry button.
+     * @param {string} message - Error message to display
+     * @param {boolean} disableRetry - Whether to disable the retry button
+     * @param {boolean} showRefreshButton - Whether to show a refresh page button
+     */
+    function showLoadingError(message, disableRetry = false, showRefreshButton = false) {
+        const loadingDiv = document.getElementById('loading');
+        const errorContainer = document.getElementById('loading-error');
+        const errorText = document.getElementById('error-text');
+        const retryBtn = document.getElementById('retry-btn');
+
+        if (errorText) {
+            errorText.textContent = message;
+        }
+
+        if (errorContainer) {
+            errorContainer.style.display = 'block';
+        }
+
+        // Handle refresh button creation/removal
+        let refreshPageBtn = errorContainer?.querySelector('.refresh-page-btn');
+        if (showRefreshButton) {
+            if (!refreshPageBtn) {
+                refreshPageBtn = document.createElement('button');
+                refreshPageBtn.className = 'refresh-page-btn';
+                refreshPageBtn.textContent = t('error.refresh_page');
+                refreshPageBtn.onclick = () => window.location.reload();
+                // Insert after retry button if it exists
+                if (retryBtn && retryBtn.parentNode) {
+                    retryBtn.parentNode.insertBefore(refreshPageBtn, retryBtn.nextSibling);
+                } else if (errorContainer) {
+                    errorContainer.appendChild(refreshPageBtn);
+                }
+            }
+        } else if (refreshPageBtn) {
+            refreshPageBtn.remove();
+        }
+
+        if (retryBtn) {
+            // Disable retry button if max retries reached
+            if (disableRetry) {
+                retryBtn.disabled = true;
+                retryBtn.style.opacity = '0.5';
+                retryBtn.style.cursor = 'not-allowed';
+            } else {
+                retryBtn.disabled = false;
+                retryBtn.style.opacity = '1';
+                retryBtn.style.cursor = 'pointer';
+
+                // Clear existing handler and add new one
+                retryBtn.onclick = null;
+                retryBtn.onclick = () => {
+                    // Prevent concurrent initialization
+                    if (window._initializationInProgress) {
+                        logger.debug('Initialization already in progress');
+                        return;
+                    }
+
+                    // Rate limiting check
+                    const now = Date.now();
+                    if (now - lastRetryTimestamp < RETRY_COOLDOWN_MS) {
+                        logger.debug(`Retry cooldown active. Please wait ${Math.ceil((RETRY_COOLDOWN_MS - (now - lastRetryTimestamp)) / 1000)}s`);
+                        return;
+                    }
+                    lastRetryTimestamp = now;
+
+                    // Reset UI elements
+                    if (errorContainer) errorContainer.style.display = 'none';
+                    const progressBar = loadingDiv?.querySelector('.progress-bar');
+                    const loadingStages = loadingDiv?.querySelector('.loading-stages');
+                    const loadingMessage = document.getElementById('loading-message');
+
+                    if (progressBar) progressBar.style.display = 'block';
+                    if (loadingStages) loadingStages.style.display = 'flex';
+                    if (loadingMessage) loadingMessage.style.display = 'block';
+
+                    // Reset all stages to pending
+                    const stages = document.querySelectorAll('.stage');
+                    stages.forEach(stage => {
+                        stage.classList.remove('stage-active', 'stage-complete');
+                        stage.classList.add('stage-pending');
+                    });
+
+                    // Reset progress bar
+                    const progressFill = document.getElementById('progress-fill');
+                    if (progressFill) progressFill.style.width = '0%';
+
+                    void initializeApp();
+                };
+            }
+        }
+
+        // Hide other loading elements
+        const progressBar = loadingDiv?.querySelector('.progress-bar');
+        const loadingStages = loadingDiv?.querySelector('.loading-stages');
+        const loadingMessage = document.getElementById('loading-message');
+
+        if (progressBar) progressBar.style.display = 'none';
+        if (loadingStages) loadingStages.style.display = 'none';
+        if (loadingMessage) loadingMessage.style.display = 'none';
+    }
+
+    async function loadRecommendation() {
+        const loadingDiv = document.getElementById('loading');
+        const contentDiv = document.getElementById('content');
+
         if (refreshBtn) {
             refreshBtn.disabled = true;
         }
 
         try {
+            // Show analyzing stage before actual Claude AI API call
+            updateLoadingStage('analyzing', 80, t('loading.analyzing'));
+
             const data = await window.cachedFetch('/api/recommendations/today', {
                 ttlMinutes: 60,
                 headers: {
                     'Accept-Language': getAcceptLanguageHeader(),
                 },
             });
+
+            // Complete!
+            updateLoadingStage('complete', 100, t('loading.complete'));
+            await new Promise(resolve => setTimeout(resolve, COMPLETION_DISPLAY_MS));
+
             handleRecommendationData(data);
 
             if (loadingDiv) {
@@ -285,15 +733,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (contentDiv) {
                 contentDiv.style.display = 'flex';
+
+                // Move focus to first heading for keyboard navigation
+                const firstHeading = contentDiv.querySelector('h2');
+                if (firstHeading) {
+                    firstHeading.setAttribute('tabindex', '-1');
+                    firstHeading.focus();
+                }
             }
         } catch (error) {
-            console.error('Error:', error);
-            const message = error instanceof Error ? error.message : 'Unknown error';
-            renderError(message);
+            logger.error('Error:', error);
+            const message = error instanceof Error ? error.message : t('error.unknown');
             showToast('toast.load_failure', 'error', { error: message });
-            if (loadingDiv) {
-                loadingDiv.style.display = 'none';
-            }
+            throw error; // Re-throw so initializeApp can handle it
         } finally {
             if (refreshBtn) {
                 refreshBtn.disabled = false;
@@ -302,12 +754,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleRecommendationData(data) {
-        latestRecommendation = data;
-        latestLoadSummary = data.recent_training_load || {};
-        lastSyncIso = data.latest_data_sync || data.generated_at || null;
-        latestExtendedSignals = data.extended_signals || null;
+        // Security: Validate all API response data before processing
+        const validatedData = validateApiResponse(data);
 
-        const responseLanguage = normalizeLanguageCode(data.language);
+        latestRecommendation = validatedData;
+        latestLoadSummary = validatedData.recent_training_load || {};
+        lastSyncIso = validatedData.latest_data_sync || validatedData.generated_at || null;
+        latestExtendedSignals = validatedData.extended_signals || null;
+
+        const responseLanguage = normalizeLanguageCode(validatedData.language);
         if (responseLanguage && responseLanguage !== currentLanguage) {
             setLanguage(responseLanguage, { save: true, revalidate: false });
         }
@@ -315,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderRecommendation();
         updateLoadSummary(latestLoadSummary);
         updateAcwrBadge(latestRecommendation.historical_baselines?.acwr);
-        renderReadinessTrend(data.readiness_history);
+        renderReadinessTrend(validatedData.readiness_history);
         updateLastSyncChip(lastSyncIso);
         renderExtendedSignals(latestExtendedSignals);
     }
@@ -637,13 +1092,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleManualSync() {
-        await performSync({ triggeredByUser: true });
-        await loadRecommendation();
+        try {
+            await performSync({ triggeredByUser: true });
+            await loadRecommendation();
+        } catch (error) {
+            logger.error('Manual sync failed:', error);
+            const message = error instanceof Error ? error.message : t('error.unknown');
+            showToast('toast.sync_failure', 'error', { error: message });
+        }
     }
 
     async function handleRefresh() {
-        await loadRecommendation();
-        triggerAutoSync(true);
+        try {
+            await loadRecommendation();
+            triggerAutoSync(true);
+        } catch (error) {
+            logger.error('Refresh failed:', error);
+            const message = error instanceof Error ? error.message : t('error.unknown');
+            showToast('toast.load_failure', 'error', { error: message });
+        }
     }
 
     function triggerAutoSync(triggeredByUser = false) {
@@ -655,9 +1122,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         void (async () => {
-            const success = await performSync({ triggeredByUser });
-            if (success) {
-                await loadRecommendation();
+            try {
+                const success = await performSync({ triggeredByUser });
+                if (success) {
+                    await loadRecommendation();
+                }
+            } catch (error) {
+                logger.error('Auto sync failed:', error);
+                if (triggeredByUser) {
+                    const message = error instanceof Error ? error.message : t('error.unknown');
+                    showToast('toast.sync_failure', 'error', { error: message });
+                }
             }
         })();
     }
@@ -691,12 +1166,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/manual/sync/now', {
+            const response = await fetchWithTimeout('/manual/sync/now', {
                 method: 'POST',
                 headers: {
                     'Accept-Language': getAcceptLanguageHeader(),
                 },
-            });
+            }, 60000); // 60 second timeout
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -713,8 +1188,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return true;
         } catch (error) {
-            console.error('Sync error:', error);
-            const message = error instanceof Error ? error.message : 'Unknown error';
+            logger.error('Sync error:', error);
+            const message = error instanceof Error ? error.message : t('error.unknown');
             showToast('toast.sync_failure', 'error', { error: message });
             if (chip) {
                 if (previousChipState) {
@@ -921,9 +1396,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const labels = document.createElement('div');
         labels.className = 'trend-labels';
-        labels.innerHTML = `<span>${history[0].score}</span><span>${
-            history[history.length - 1].score
-        }</span>`;
+
+        // Security: Use textContent instead of innerHTML to prevent XSS
+        const firstScoreSpan = document.createElement('span');
+        firstScoreSpan.textContent = String(history[0].score);
+        const lastScoreSpan = document.createElement('span');
+        lastScoreSpan.textContent = String(history[history.length - 1].score);
+
+        labels.appendChild(firstScoreSpan);
+        labels.appendChild(lastScoreSpan);
         container.appendChild(labels);
     }
 

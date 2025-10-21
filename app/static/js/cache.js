@@ -56,13 +56,19 @@ class DataCache {
             .forEach(k => localStorage.removeItem(k));
     }
 
-    // Helper to generate cache keys
-    static generateKey(endpoint, params = {}) {
+    // Helper to generate cache keys with URL encoding to prevent collisions
+    static generateKey(endpoint, params = {}, headers = {}) {
+        // Security: URL encode both keys and values to prevent cache poisoning
         const paramString = Object.keys(params)
             .sort()
-            .map(k => `${k}=${params[k]}`)
+            .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
             .join('&');
-        return `${endpoint}${paramString ? '?' + paramString : ''}`;
+
+        // Include language header in cache key to prevent language-specific cache collisions
+        const langHeader = headers['Accept-Language'] || '';
+        const langPart = langHeader ? `&lang=${encodeURIComponent(langHeader)}` : '';
+
+        return `${endpoint}${paramString ? '?' + paramString : ''}${langPart}`;
     }
 
     _saveToLocalStorage(key, data, expiry) {
@@ -75,6 +81,16 @@ class DataCache {
         } catch (e) {
             console.warn('localStorage quota exceeded, clearing old cache');
             this._clearOldestCache();
+            // Retry save after clearing cache
+            try {
+                localStorage.setItem(`cache_${key}`, JSON.stringify({
+                    data: data,
+                    expiry: expiry,
+                    timestamp: Date.now()
+                }));
+            } catch (retryError) {
+                console.error('Failed to save to localStorage even after clearing cache', retryError);
+            }
         }
     }
 
@@ -90,7 +106,7 @@ class DataCache {
     }
 
     _clearOldestCache() {
-        // Clear oldest 25% of cache entries
+        // Clear oldest 50% of cache entries for better quota recovery
         const cacheKeys = Object.keys(localStorage)
             .filter(k => k.startsWith('cache_'))
             .map(k => {
@@ -103,7 +119,7 @@ class DataCache {
             })
             .sort((a, b) => a.timestamp - b.timestamp);
 
-        const toClear = Math.floor(cacheKeys.length * 0.25);
+        const toClear = Math.max(1, Math.floor(cacheKeys.length * 0.5));
         cacheKeys.slice(0, toClear).forEach(item => {
             localStorage.removeItem(item.key);
         });
@@ -129,18 +145,16 @@ class DataCache {
  * Fetch wrapper with automatic caching
  */
 async function cachedFetch(url, options = {}) {
-    const cacheKey = DataCache.generateKey(url, options.params || {});
+    // Security: Include headers in cache key to prevent language-specific collisions
+    const cacheKey = DataCache.generateKey(url, options.params || {}, options.headers || {});
 
     // Check cache first (unless force refresh)
     if (!options.forceRefresh) {
         const cached = window.dataCache.get(cacheKey);
         if (cached) {
-            console.log(`Cache HIT: ${cacheKey}`);
             return cached;
         }
     }
-
-    console.log(`Cache MISS: ${cacheKey} - Fetching...`);
 
     // Add query params to URL
     const fullUrl = new URL(url, window.location.origin);
