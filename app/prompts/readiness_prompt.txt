@@ -35,6 +35,49 @@ ADDITIONAL SIGNALS:
 RECENT TRAINING HISTORY (Last 7 days):
 {activity_summary}
 
+MOST RECENT WORKOUT PERFORMANCE (Last 72 hours):
+{recent_workout_details}
+
+**RECENT WORKOUT PERFORMANCE INTERPRETATION:**
+When analyzing the most recent workout performance:
+- **PERFORMANCE CONDITION** indicates acute recovery state:
+  * **Strong**: HR lower OR pace faster than baseline → excellent recovery, ready for quality work
+  * **Normal**: Performance within ±5% of baseline → adequate recovery, proceed with planned training
+  * **Fatigued**: HR higher OR pace slower than baseline → incomplete recovery, reduce intensity or rest
+- **TREND** reveals medium-term performance trajectory:
+  * **Improving**: Consistent gains in performance → training is working, maintain current approach
+  * **Stable**: Performance holding steady → appropriate for maintenance phases
+  * **Declining**: Performance dropping over time → possible overtraining, fatigue accumulation, or illness
+- **HOURS SINCE WORKOUT** affects recovery needs:
+  * <24 hours: Recent session, muscles still recovering
+  * 24-48 hours: Critical recovery window for hard efforts
+  * 48-72 hours: Should be recovered for similar workouts
+- **CROSS-REFERENCE with other metrics**:
+  * Fatigued performance + elevated HR + low HRV = clear overtraining signal → mandate rest
+  * Strong performance + good recovery metrics = green light for progression
+  * Normal performance but poor sleep/HRV = prioritize recovery over training quality
+
+**DETAILED PERFORMANCE BREAKDOWN (when available):**
+When detailed activity metrics are present, interpret them as follows:
+- **PACE CONSISTENCY SCORE** (0-100):
+  * 90-100: Excellent pacing strategy, minimal variation
+  * 70-89: Good pacing with some variation (acceptable for most workouts)
+  * 50-69: Inconsistent pacing, may indicate fatigue or poor pacing strategy
+  * <50: Very inconsistent, possible mid-run struggles or fading
+- **HR DRIFT** (percentage change from start to finish):
+  * 0-3%: Excellent efficiency, well-paced effort
+  * 3-6%: Normal cardiac drift for sustained efforts
+  * 6-10%: Moderate drift, possible heat stress or insufficient conditioning
+  * >10%: Significant drift, indicates stress (heat, dehydration, overexertion)
+- **WEATHER CONDITIONS**:
+  * High temperature (>25°C) or humidity (>70%) elevates HR expectations
+  * Cold (<5°C) may lower HR, slower warm-up needed
+  * Wind impacts perceived effort (headwind = harder)
+- **SPLITS ANALYSIS**:
+  * Positive splits (slowing): Possible fatigue, pacing too aggressive early
+  * Negative splits (getting faster): Excellent pacing control and energy management
+  * Even splits: Optimal for most distance efforts
+
 **ACTIVITY TYPE INTERPRETATION GUIDE:**
 When analyzing the activity breakdown, consider:
 - **HIGH IMPACT** activities (running, intervals, plyometrics) cause significant musculoskeletal stress and neuromuscular fatigue

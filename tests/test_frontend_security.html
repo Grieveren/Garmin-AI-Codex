@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Security Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .pass {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .fail {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        h1 { color: #333; }
+        h2 { color: #666; font-size: 1.2em; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Frontend Security Tests</h1>
+    <div id="results"></div>
+
+    <script>
+        // Copy validation function from dashboard.js
+        function validateApiResponse(data) {
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid API response: expected object');
+            }
+
+            // Validate readiness_score (must be number 0-100)
+            if (typeof data.readiness_score !== 'number' ||
+                !Number.isFinite(data.readiness_score) ||
+                data.readiness_score < 0 ||
+                data.readiness_score > 100) {
+                throw new Error('Invalid readiness_score: must be a number between 0-100');
+            }
+
+            // Validate workout_recommendation object
+            if (data.workout_recommendation && typeof data.workout_recommendation !== 'object') {
+                throw new Error('Invalid workout_recommendation: must be an object');
+            }
+
+            // Validate recent_training_load object
+            if (data.recent_training_load && typeof data.recent_training_load !== 'object') {
+                throw new Error('Invalid recent_training_load: must be an object');
+            }
+
+            // Validate readiness_history array
+            if (data.readiness_history) {
+                if (!Array.isArray(data.readiness_history)) {
+                    throw new Error('Invalid readiness_history: must be an array');
+                }
+                data.readiness_history.forEach((item, index) => {
+                    if (!item || typeof item !== 'object') {
+                        throw new Error(`Invalid readiness_history[${index}]: must be an object`);
+                    }
+                    if (typeof item.score !== 'number' || !Number.isFinite(item.score)) {
+                        throw new Error(`Invalid readiness_history[${index}].score: must be a finite number`);
+                    }
+                });
+            }
+
+            // Validate string fields that will be displayed
+            const stringFields = [
+                'recommendation',
+                'confidence',
+                'language',
+                'ai_reasoning'
+            ];
+            stringFields.forEach(field => {
+                if (data[field] !== undefined && data[field] !== null && typeof data[field] !== 'string') {
+                    throw new Error(`Invalid ${field}: must be a string`);
+                }
+            });
+
+            // Validate array fields
+            const arrayFields = ['key_factors', 'red_flags', 'recovery_tips'];
+            arrayFields.forEach(field => {
+                if (data[field] !== undefined && data[field] !== null) {
+                    if (!Array.isArray(data[field])) {
+                        throw new Error(`Invalid ${field}: must be an array`);
+                    }
+                    data[field].forEach((item, index) => {
+                        if (typeof item !== 'string') {
+                            throw new Error(`Invalid ${field}[${index}]: must be a string`);
+                        }
+                    });
+                }
+            });
+
+            // Validate enhanced_metrics if present
+            if (data.enhanced_metrics && typeof data.enhanced_metrics !== 'object') {
+                throw new Error('Invalid enhanced_metrics: must be an object');
+            }
+
+            // Validate extended_signals if present
+            if (data.extended_signals && typeof data.extended_signals !== 'object') {
+                throw new Error('Invalid extended_signals: must be an object');
+            }
+
+            return data;
+        }
+
+        // Copy cache key generation from cache.js
+        function generateCacheKey(endpoint, params = {}, headers = {}) {
+            const paramString = Object.keys(params)
+                .sort()
+                .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
+                .join('&');
+
+            const langHeader = headers['Accept-Language'] || '';
+            const langPart = langHeader ? `&lang=${encodeURIComponent(langHeader)}` : '';
+
+            return `${endpoint}${paramString ? '?' + paramString : ''}${langPart}`;
+        }
+
+        // Helper to create test result element securely
+        function createTestResult(index, name, passed, errorMsg = null) {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test ' + (passed ? 'pass' : 'fail');
+
+            const title = document.createElement('h2');
+            title.textContent = `${passed ? '✓' : '✗'} Test ${index + 1}: ${name}`;
+            testDiv.appendChild(title);
+
+            const result = document.createElement('p');
+            result.textContent = passed ? 'PASSED' : `FAILED: ${errorMsg || 'Test returned false'}`;
+            testDiv.appendChild(result);
+
+            return testDiv;
+        }
+
+        // Test cases
+        const tests = [];
+
+        // Test 1: Valid API response
+        tests.push({
+            name: 'Valid API Response',
+            fn: () => {
+                const validData = {
+                    readiness_score: 75,
+                    recommendation: 'moderate',
+                    confidence: 'high',
+                    workout_recommendation: {},
+                    recent_training_load: {},
+                    readiness_history: [
+                        { score: 70 },
+                        { score: 75 }
+                    ]
+                };
+                validateApiResponse(validData);
+                return true;
+            }
+        });
+
+        // Test 2: Invalid readiness_score (string)
+        tests.push({
+            name: 'Reject string readiness_score (XSS prevention)',
+            fn: () => {
+                try {
+                    validateApiResponse({
+                        readiness_score: '<script>alert("xss")</script>',
+                        workout_recommendation: {}
+                    });
+                    return false;
+                } catch (e) {
+                    return e.message.includes('readiness_score');
+                }
+            }
+        });
+
+        // Test 3: Invalid readiness_score (out of range)
+        tests.push({
+            name: 'Reject out-of-range readiness_score',
+            fn: () => {
+                try {
+                    validateApiResponse({
+                        readiness_score: 150,
+                        workout_recommendation: {}
+                    });
+                    return false;
+                } catch (e) {
+                    return e.message.includes('0-100');
+                }
+            }
+        });
+
+        // Test 4: Invalid readiness_history with XSS
+        tests.push({
+            name: 'Reject XSS in readiness_history',
+            fn: () => {
+                try {
+                    validateApiResponse({
+                        readiness_score: 75,
+                        readiness_history: [
+                            { score: '<img src=x onerror=alert(1)>' }
+                        ]
+                    });
+                    return false;
+                } catch (e) {
+                    return e.message.includes('finite number');
+                }
+            }
+        });
+
+        // Test 5: Cache key with special characters
+        tests.push({
+            name: 'Cache key handles special characters safely',
+            fn: () => {
+                const key1 = generateCacheKey('/api/test', { foo: 'bar&baz=qux' });
+                const key2 = generateCacheKey('/api/test', { foo: 'bar', baz: 'qux' });
+                // These should be different to prevent collision
+                return key1 !== key2 && key1.includes('bar%26baz%3Dqux');
+            }
+        });
+
+        // Test 6: Cache key includes language header
+        tests.push({
+            name: 'Cache key includes language header',
+            fn: () => {
+                const keyEn = generateCacheKey('/api/test', {}, { 'Accept-Language': 'en-US' });
+                const keyDe = generateCacheKey('/api/test', {}, { 'Accept-Language': 'de-DE' });
+                // Different languages should produce different keys
+                return keyEn !== keyDe && keyEn.includes('en-US') && keyDe.includes('de-DE');
+            }
+        });
+
+        // Test 7: XSS prevention in trend labels (DOM-based)
+        tests.push({
+            name: 'XSS prevention in trend chart labels',
+            fn: () => {
+                // Create test container
+                const container = document.createElement('div');
+                const labels = document.createElement('div');
+                labels.className = 'trend-labels';
+
+                // Simulate malicious score data
+                const maliciousHistory = [
+                    { score: '<img src=x onerror=alert(1)>' },
+                    { score: '</script><script>alert(2)</script>' }
+                ];
+
+                // Use textContent approach (secure)
+                const firstScoreSpan = document.createElement('span');
+                firstScoreSpan.textContent = String(maliciousHistory[0].score);
+                const lastScoreSpan = document.createElement('span');
+                lastScoreSpan.textContent = String(maliciousHistory[1].score);
+
+                labels.appendChild(firstScoreSpan);
+                labels.appendChild(lastScoreSpan);
+                container.appendChild(labels);
+
+                // Verify: textContent should escape HTML, so these strings should appear literally
+                const text = container.textContent;
+                const containsMaliciousStrings = text.includes('<img') && text.includes('<script>');
+
+                return containsMaliciousStrings; // Should contain literal strings, not executed HTML
+            }
+        });
+
+        // Run tests and display results
+        const resultsDiv = document.getElementById('results');
+        let passCount = 0;
+        let failCount = 0;
+
+        tests.forEach((test, index) => {
+            try {
+                const result = test.fn();
+                const testDiv = createTestResult(index, test.name, result);
+                resultsDiv.appendChild(testDiv);
+                if (result) {
+                    passCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (error) {
+                const testDiv = createTestResult(index, test.name, false, error.message);
+                resultsDiv.appendChild(testDiv);
+                failCount++;
+            }
+        });
+
+        // Summary
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'test ' + (failCount === 0 ? 'pass' : 'fail');
+
+        const summaryTitle = document.createElement('h2');
+        summaryTitle.textContent = 'Test Summary';
+        summaryDiv.appendChild(summaryTitle);
+
+        const summaryText = document.createElement('p');
+        summaryText.textContent = `Passed: ${passCount} / ${tests.length} | Failed: ${failCount} / ${tests.length}`;
+        summaryDiv.appendChild(summaryText);
+
+        resultsDiv.insertBefore(summaryDiv, resultsDiv.firstChild);
+    </script>
+</body>
+</html>

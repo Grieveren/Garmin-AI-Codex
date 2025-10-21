@@ -35,3 +35,12 @@ activity_classification:
   duration:
     minimum_seconds: 1800
     long_duration_minutes: 90
+
+performance_analysis:
+  workout_recency_hours: 72  # Hours to consider workout "recent" for analysis
+  min_duration_seconds: 300  # Minimum 5 minutes to count as workout
+  similar_workout_lookback_days: 14  # Days to look back for similar workout comparisons
+  min_similar_workouts: 2  # Minimum workouts needed to calculate trend
+  hr_deviation_threshold: 5  # bpm deviation to flag as significant
+  pace_deviation_threshold_pct: 5  # Percent deviation to flag as significant
+  stable_threshold: 5.0  # Threshold for "stable" trend (within ±5%)

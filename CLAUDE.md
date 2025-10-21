@@ -249,6 +249,7 @@ python scripts/migrate_phase1_metrics.py     # Phase 1 migration
 - Token-based authentication with persistent storage (`.garmin_tokens`)
 - Handles MFA authentication flow (user provides 6-digit code)
 - Gracefully degrades when profile API calls fail but OAuth succeeds
+- **Detailed activity data**: Fetches splits, HR zones, weather via `get_detailed_activity_analysis(activity_id)`
 - Critical: `garminconnect` library is unofficial and may break with Garmin API changes
 
 **AIAnalyzer** - Claude AI integration for workout analysis:
@@ -275,12 +276,25 @@ python scripts/migrate_phase1_metrics.py     # Phase 1 migration
 - Email/SMS notifications with workout suggestions
 - Alert triggers for overtraining and illness detection
 
+**ActivityDetailService** - Fetches and caches detailed activity data:
+- Combines GarminService API calls with database caching
+- Fetches splits (lap-by-lap pace/HR), HR zone distribution, weather conditions
+- Calculates derived metrics: pace consistency score, HR drift percentage
+- Smart caching: 24-hour cache for complete data, 1-hour retry for incomplete
+- Bulk fetch with rate limiting for recent activities
+
+**ActivityDetailHelper** - Helper for activity detail storage and calculations:
+- Pace consistency scoring (0-100 based on coefficient of variation)
+- HR drift calculation (percentage increase/decrease from start to finish)
+- Cache validation and refetch logic
+
 ### Database Models (`app/models/database_models.py`)
 
 Key tables (refer to AI_Training_Optimizer_Specification.md for full schema):
 - `daily_metrics` - Steps, HR, HRV, sleep, body battery
 - `sleep_sessions` - Detailed sleep stage data
 - `activities` - Garmin workouts with training effect/load
+- **`activity_details`** - Detailed activity data (splits, HR zones, weather) with derived metrics
 - `daily_readiness` - AI-generated readiness scores and recommendations
 - `training_plans` / `planned_workouts` - Structured training programs
 - `training_load_tracking` - ACWR, fitness/fatigue/form
@@ -429,6 +443,7 @@ ONE instance only (enforced via filelock). Run as systemd/Docker/cloud scheduler
 
 ### Testing & Debugging
 - **Garmin Integration:** `python scripts/sync_data.py --mfa-code 123456` or web UI at `/manual/mfa`
+- **Activity Details:** `python scripts/fetch_activity_details.py --activity-id 12345678` or `--recent-days 30`
 - **AI Analysis:** `python scripts/run_scheduler.py --run-now`
 - **Debugging:** Logs in `logs/`, use `DEBUG=True` in `.env`
 

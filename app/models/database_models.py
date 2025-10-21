@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for historical data tracking."""
 from datetime import date, datetime
-from sqlalchemy import Integer, Date, DateTime, Float, String, Boolean, Text, ForeignKey
+from sqlalchemy import Integer, Date, DateTime, Float, String, Boolean, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -86,6 +86,40 @@ class Activity(Base):
     start_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ActivityDetail(Base):
+    """Detailed activity analysis data from Garmin (splits, HR zones, weather)."""
+
+    __tablename__ = "activity_details"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    activity_id: Mapped[int] = mapped_column(Integer, ForeignKey("activities.id"), unique=True, nullable=False, index=True)
+
+    # Lap/split data (JSON structure for flexibility)
+    splits_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # HR zone distribution (JSON structure)
+    hr_zones_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Weather conditions (JSON structure)
+    weather_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Derived metrics calculated from splits
+    pace_consistency_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100, higher = more consistent pacing
+    hr_drift_percent: Mapped[float | None] = mapped_column(Float, nullable=True)  # % increase in HR from start to finish
+
+    # Cache management
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    is_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # All data successfully fetched
+    fetch_errors: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of errors encountered
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship
+    activity: Mapped["Activity"] = relationship("Activity", foreign_keys=[activity_id])
 
 
 class TrainingPlan(Base):

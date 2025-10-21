@@ -215,3 +215,215 @@ class GarminService:
                         "get_activities(start, limit)"
                     ]
                 }
+
+    def get_activity_splits(self, activity_id: int) -> dict[str, Any] | None:
+        """
+        Fetch lap-by-lap split data for an activity.
+
+        Args:
+            activity_id: Garmin activity ID
+
+        Returns:
+            dict: Splits data with lap metrics (pace, HR, distance per lap)
+            None: If data unavailable or error occurred
+
+        Example response structure:
+            {
+                "lapDTOs": [
+                    {
+                        "distance": 1000.0,
+                        "duration": 300.0,
+                        "averageHR": 145,
+                        "maxHR": 152,
+                        "averageSpeed": 3.33,
+                        ...
+                    },
+                    ...
+                ]
+            }
+        """
+        try:
+            logger.info("Fetching activity splits for activity_id=%d", activity_id)
+            data = self._client.get_activity_splits(activity_id)
+
+            if data:
+                num_laps = len(data.get("lapDTOs", []))
+                logger.info("Successfully fetched %d splits for activity %d", num_laps, activity_id)
+                return data
+            else:
+                logger.warning("No splits data returned for activity %d", activity_id)
+                return None
+
+        except Exception as err:
+            logger.warning(
+                "Failed to fetch splits for activity %d: %s",
+                activity_id,
+                str(err),
+                exc_info=True
+            )
+            return None
+
+    def get_activity_hr_zones(self, activity_id: int) -> dict[str, Any] | None:
+        """
+        Fetch heart rate zone distribution for an activity.
+
+        Args:
+            activity_id: Garmin activity ID
+
+        Returns:
+            dict: HR zone data with time spent in each zone
+            None: If data unavailable or error occurred
+
+        Example response structure:
+            {
+                "timeInZones": [
+                    {"zone": 1, "duration": 120},  # seconds in Zone 1
+                    {"zone": 2, "duration": 600},
+                    ...
+                ]
+            }
+        """
+        try:
+            logger.info("Fetching HR zones for activity_id=%d", activity_id)
+            data = self._client.get_activity_hr_in_timezones(activity_id)
+
+            if data:
+                logger.info("Successfully fetched HR zone data for activity %d", activity_id)
+                return data
+            else:
+                logger.warning("No HR zone data returned for activity %d", activity_id)
+                return None
+
+        except Exception as err:
+            logger.warning(
+                "Failed to fetch HR zones for activity %d: %s",
+                activity_id,
+                str(err),
+                exc_info=True
+            )
+            return None
+
+    def get_activity_weather(self, activity_id: int) -> dict[str, Any] | None:
+        """
+        Fetch weather conditions during an activity.
+
+        Args:
+            activity_id: Garmin activity ID
+
+        Returns:
+            dict: Weather data (temperature, humidity, wind, etc.)
+            None: If data unavailable or error occurred
+
+        Example response structure:
+            {
+                "temperature": 15.0,  # Celsius
+                "apparentTemperature": 13.0,
+                "humidity": 65,  # percent
+                "windSpeed": 12.0,  # km/h
+                "weatherCondition": "cloudy"
+            }
+        """
+        try:
+            logger.info("Fetching weather for activity_id=%d", activity_id)
+            data = self._client.get_activity_weather(activity_id)
+
+            if data:
+                logger.info("Successfully fetched weather data for activity %d", activity_id)
+                return data
+            else:
+                logger.warning("No weather data returned for activity %d", activity_id)
+                return None
+
+        except Exception as err:
+            logger.warning(
+                "Failed to fetch weather for activity %d: %s",
+                activity_id,
+                str(err),
+                exc_info=True
+            )
+            return None
+
+    def get_detailed_activity_analysis(self, activity_id: int) -> dict[str, Any]:
+        """
+        Fetch all detailed activity data in a single call.
+
+        Combines splits, HR zones, and weather data with graceful degradation
+        if individual API calls fail.
+
+        Args:
+            activity_id: Garmin activity ID
+
+        Returns:
+            dict: Structured response with all available data
+                {
+                    "activity_id": int,
+                    "splits": dict | None,
+                    "hr_zones": dict | None,
+                    "weather": dict | None,
+                    "is_complete": bool,  # True if all data fetched successfully
+                    "errors": list[str]  # List of failed fetches
+                }
+
+        Example:
+            >>> garmin = GarminService()
+            >>> garmin.login()
+            >>> details = garmin.get_detailed_activity_analysis(12345678)
+            >>> print(details["is_complete"])
+            True
+            >>> print(len(details["splits"]["lapDTOs"]))
+            10
+        """
+        logger.info("Fetching detailed analysis for activity %d", activity_id)
+
+        errors = []
+        splits = None
+        hr_zones = None
+        weather = None
+
+        # Fetch splits (most important for pacing analysis)
+        try:
+            splits = self.get_activity_splits(activity_id)
+            if splits is None:
+                errors.append("splits")
+        except Exception as err:
+            logger.error("Splits fetch failed: %s", err)
+            errors.append("splits")
+
+        # Fetch HR zones (important for intensity analysis)
+        try:
+            hr_zones = self.get_activity_hr_zones(activity_id)
+            if hr_zones is None:
+                errors.append("hr_zones")
+        except Exception as err:
+            logger.error("HR zones fetch failed: %s", err)
+            errors.append("hr_zones")
+
+        # Fetch weather (nice to have, not critical)
+        try:
+            weather = self.get_activity_weather(activity_id)
+            if weather is None:
+                errors.append("weather")
+        except Exception as err:
+            logger.error("Weather fetch failed: %s", err)
+            errors.append("weather")
+
+        is_complete = len(errors) == 0
+
+        result = {
+            "activity_id": activity_id,
+            "splits": splits,
+            "hr_zones": hr_zones,
+            "weather": weather,
+            "is_complete": is_complete,
+            "errors": errors
+        }
+
+        logger.info(
+            "Detailed analysis for activity %d complete: %d/%d successful (%s)",
+            activity_id,
+            3 - len(errors),
+            3,
+            "complete" if is_complete else f"missing: {', '.join(errors)}"
+        )
+
+        return result
