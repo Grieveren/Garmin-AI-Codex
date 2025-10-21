@@ -12,11 +12,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY = 'chat-history';
     const MAX_RECONNECT_ATTEMPTS = 3;
     const RECONNECT_DELAY = 2000;
+    const RATE_LIMIT_MESSAGES = 10; // Max messages per minute
+    const RATE_LIMIT_WINDOW = 60000; // 1 minute in ms
 
     let reconnectAttempts = 0;
     let eventSource = null;
     let isStreaming = false;
     let currentMessageElement = null;
+    let messageTimestamps = []; // Track message timestamps for rate limiting
 
     // Load chat history from localStorage
     loadChatHistory();
@@ -42,15 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Quick action buttons
-    document.querySelectorAll('.quick-action-btn[data-message]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const message = btn.dataset.message;
+    // Quick action buttons - Use event delegation to prevent memory leaks
+    document.addEventListener('click', (event) => {
+        const quickActionBtn = event.target.closest('.quick-action-btn[data-message]');
+        if (quickActionBtn) {
+            const message = quickActionBtn.dataset.message;
             if (message) {
                 chatInput.value = message;
                 chatForm.dispatchEvent(new Event('submit'));
             }
-        });
+        }
     });
 
     async function handleSendMessage(e) {
@@ -58,6 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const message = chatInput.value.trim();
         if (!message || isStreaming) return;
+
+        // Rate limiting: prevent spam
+        const now = Date.now();
+        messageTimestamps = messageTimestamps.filter(ts => now - ts < RATE_LIMIT_WINDOW);
+
+        if (messageTimestamps.length >= RATE_LIMIT_MESSAGES) {
+            showError(`Rate limit exceeded. Maximum ${RATE_LIMIT_MESSAGES} messages per minute.`);
+            return;
+        }
+
+        messageTimestamps.push(now);
 
         // Clear input and hide empty state
         chatInput.value = '';
@@ -274,22 +289,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleClearChat() {
-        if (!confirm('Are you sure you want to clear the chat history?')) {
+    async function handleClearChat() {
+        // Use custom modal instead of browser confirm()
+        const confirmed = await window.modalDialog.confirm(
+            'This will delete all your chat history. This action cannot be undone.',
+            {
+                title: 'Clear Chat History',
+                confirmText: 'Clear History',
+                cancelText: 'Cancel',
+                variant: 'warning'
+            }
+        );
+
+        if (!confirmed) {
             return;
         }
 
-        // Clear messages
-        chatMessages.innerHTML = '';
+        // Clear messages safely
+        chatMessages.textContent = '';
 
-        // Show empty state
+        // Show empty state - create DOM elements safely to prevent XSS
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-state';
-        emptyState.innerHTML = `
-            <div class="empty-state-icon">🤖</div>
-            <h3>Start a Conversation</h3>
-            <p>Ask me anything about your training, recovery, or workout plan. I have access to your latest Garmin data and readiness scores.</p>
-        `;
+
+        const icon = document.createElement('div');
+        icon.className = 'empty-state-icon';
+        icon.textContent = '🤖';
+
+        const heading = document.createElement('h3');
+        heading.textContent = 'Start a Conversation';
+
+        const description = document.createElement('p');
+        description.textContent = 'Ask me anything about your training, recovery, or workout plan. I have access to your latest Garmin data and readiness scores.';
+
+        emptyState.appendChild(icon);
+        emptyState.appendChild(heading);
+        emptyState.appendChild(description);
         chatMessages.appendChild(emptyState);
 
         // Clear storage

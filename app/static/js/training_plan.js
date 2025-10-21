@@ -109,7 +109,7 @@ function displayPlanOverview() {
  */
 function renderCalendarWeek() {
     const grid = document.getElementById('calendar-grid');
-    grid.innerHTML = '';
+    grid.replaceChildren(); // Modern, safe alternative to innerHTML = ''
 
     // Update week header
     const weekEnd = new Date(currentWeekStart);
@@ -230,15 +230,15 @@ function createWorkoutCard(workout) {
     // Completion checkbox
     const checkboxContainer = document.createElement('div');
     checkboxContainer.className = 'completion-checkbox';
-    checkboxContainer.onclick = (e) => {
+    checkboxContainer.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleWorkoutCompletion(workout.id, !workout.was_completed);
-    };
+    });
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = workout.was_completed;
-    checkbox.onclick = (e) => e.stopPropagation();
+    checkbox.addEventListener('click', (e) => e.stopPropagation());
 
     const label = document.createElement('span');
     label.className = 'completion-label';
@@ -261,15 +261,69 @@ async function toggleWorkoutCompletion(workoutId, completed) {
             completed_at: completed ? new Date().toISOString() : null
         };
 
-        // If completing, ask for details
+        // If completing, ask for details with validation using custom modal
         if (completed) {
-            const duration = prompt('Actual duration (minutes):');
-            const distance = prompt('Actual distance (km):');
-            const notes = prompt('Notes (optional):');
+            const formData = await window.modalDialog.form(
+                'Enter details about your completed workout:',
+                [
+                    {
+                        name: 'duration',
+                        label: 'Duration (minutes)',
+                        type: 'number',
+                        placeholder: 'e.g., 45',
+                        min: 1,
+                        max: 1440,
+                        step: 1,
+                        required: false
+                    },
+                    {
+                        name: 'distance',
+                        label: 'Distance (km)',
+                        type: 'number',
+                        placeholder: 'e.g., 5.2',
+                        min: 0.1,
+                        max: 500,
+                        step: 0.1,
+                        required: false
+                    },
+                    {
+                        name: 'notes',
+                        label: 'Notes',
+                        type: 'textarea',
+                        placeholder: 'How did it feel? Any observations...',
+                        required: false
+                    }
+                ],
+                {
+                    title: 'Workout Completion Details',
+                    submitText: 'Save',
+                    cancelText: 'Skip'
+                }
+            );
 
-            if (duration) requestBody.actual_duration_min = parseInt(duration);
-            if (distance) requestBody.actual_distance_km = parseFloat(distance);
-            if (notes) requestBody.notes = notes;
+            // User cancelled
+            if (!formData) {
+                // Continue without details (just mark as completed)
+            } else {
+                // Validate and add form data to request
+                if (formData.duration) {
+                    const parsedDuration = parseInt(formData.duration, 10);
+                    if (!isNaN(parsedDuration) && parsedDuration > 0 && parsedDuration <= 1440) {
+                        requestBody.actual_duration_min = parsedDuration;
+                    }
+                }
+
+                if (formData.distance) {
+                    const parsedDistance = parseFloat(formData.distance);
+                    if (!isNaN(parsedDistance) && parsedDistance > 0 && parsedDistance <= 500) {
+                        requestBody.actual_distance_km = parsedDistance;
+                    }
+                }
+
+                if (formData.notes && formData.notes.trim()) {
+                    requestBody.notes = formData.notes.trim().substring(0, 500);
+                }
+            }
         }
 
         const response = await fetch(`/api/training/workouts/${workoutId}/complete`, {
@@ -311,9 +365,16 @@ async function generatePlan(event) {
     const originalText = generateBtn.textContent;
 
     try {
-        // Disable button and show loading
+        // Disable button and show loading (safe DOM creation)
         generateBtn.disabled = true;
-        generateBtn.innerHTML = '<span class="loading-spinner"></span> Generating...';
+        generateBtn.textContent = '';
+
+        const spinner = document.createElement('span');
+        spinner.className = 'loading-spinner';
+        generateBtn.appendChild(spinner);
+
+        const loadingText = document.createTextNode(' Generating...');
+        generateBtn.appendChild(loadingText);
 
         // Gather form data
         const formData = {
@@ -367,7 +428,18 @@ async function generatePlan(event) {
 async function deactivatePlan() {
     if (!currentPlan) return;
 
-    if (!confirm('Are you sure you want to deactivate this training plan?')) {
+    // Use custom modal instead of browser confirm()
+    const confirmed = await window.modalDialog.confirm(
+        'This will deactivate your current training plan. You can create a new plan anytime.',
+        {
+            title: 'Deactivate Training Plan',
+            confirmText: 'Deactivate',
+            cancelText: 'Keep Plan',
+            variant: 'danger'
+        }
+    );
+
+    if (!confirmed) {
         return;
     }
 
@@ -447,9 +519,18 @@ function hideGenerateForm() {
  */
 function showError(message) {
     const errorContainer = document.getElementById('error-container');
-    errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+
+    // Clear previous error
+    errorContainer.textContent = '';
+
+    // Create error message element safely (prevents XSS)
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = message; // Safe - no XSS risk
+    errorContainer.appendChild(errorDiv);
+
     setTimeout(() => {
-        errorContainer.innerHTML = '';
+        errorContainer.textContent = '';
     }, 5000);
 }
 

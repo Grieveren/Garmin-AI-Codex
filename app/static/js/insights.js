@@ -724,15 +724,20 @@ async function updateWeeklySummary() {
 
 /**
  * Setup export buttons for charts
+ * Uses event delegation to prevent memory leaks
  */
 function setupExportButtons() {
-    const exportButtons = document.querySelectorAll('.btn-export');
-
-    exportButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const chartId = button.getAttribute('data-chart');
-            exportChartAsPNG(chartId);
-        });
+    // Use event delegation on document for better memory management
+    // This avoids adding/removing listeners when buttons are dynamically created
+    document.addEventListener('click', (event) => {
+        // Check if clicked element is an export button
+        const exportButton = event.target.closest('.btn-export');
+        if (exportButton) {
+            const chartId = exportButton.getAttribute('data-chart');
+            if (chartId) {
+                exportChartAsPNG(chartId);
+            }
+        }
     });
 }
 
@@ -951,11 +956,23 @@ function hideError() {
 function showEmptyState(chartId, message) {
     const chartDiv = document.getElementById(chartId);
     if (chartDiv) {
-        chartDiv.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; height: 300px; color: ${getColor('text')};">
-                <p>${message}</p>
-            </div>
-        `;
+        // Clear previous content
+        chartDiv.textContent = '';
+
+        // Create empty state container
+        const container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.justifyContent = 'center';
+        container.style.height = '300px';
+        container.style.color = getColor('text');
+
+        // Create message element safely
+        const p = document.createElement('p');
+        p.textContent = message; // Safe - prevents XSS even with user input
+        container.appendChild(p);
+
+        chartDiv.appendChild(container);
     }
 }
 

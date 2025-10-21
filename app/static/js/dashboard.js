@@ -112,6 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
             'error.retry_attempt': 'Retry attempt {current}/{max}',
             'error.max_retries': 'Maximum retries exceeded. Please refresh the page.',
             'error.unknown': 'Unknown error',
+            'error.network': 'Network error. Check your internet connection.',
+            'error.timeout': 'Request timed out. Please try again.',
+            'error.sync_failed': 'Data sync failed. Please check Garmin connection.',
+            'error.api_validation': 'Invalid data received from server.',
         },
         de: {
             'meta.title': 'KI Trainings-Optimierer - Dashboard',
@@ -210,8 +214,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'error.refresh_page': 'Seite aktualisieren',
             'error.init_failed': 'Dashboard-Initialisierung fehlgeschlagen: {error}',
             'error.retry_attempt': 'Versuch {current}/{max}',
-            'error.max_retries': 'Maximale Anzahl an Versuchen erreicht. Bitte Seite aktualisieren.',
+            'error.max_retries': 'Maximale Versuche überschritten. Bitte Seite aktualisieren.',
             'error.unknown': 'Unbekannter Fehler',
+            'error.network': 'Netzwerkfehler. Bitte Internetverbindung prüfen.',
+            'error.timeout': 'Zeitüberschreitung. Bitte erneut versuchen.',
+            'error.sync_failed': 'Datensynchronisierung fehlgeschlagen. Bitte Garmin-Verbindung prüfen.',
+            'error.api_validation': 'Ungültige Daten vom Server erhalten.',
         },
     };
 
@@ -574,6 +582,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const loadingMessage = document.getElementById('loading-message');
         if (loadingMessage) {
             loadingMessage.textContent = message;
+
+            // CRITICAL FIX: Announce stage change to screen readers
+            // Create temporary live region for assertive announcement
+            const liveRegion = document.createElement('div');
+            liveRegion.setAttribute('role', 'status');
+            liveRegion.setAttribute('aria-live', 'assertive');
+            liveRegion.setAttribute('aria-atomic', 'true');
+            liveRegion.classList.add('sr-only');
+            liveRegion.textContent = message;
+            document.body.appendChild(liveRegion);
+
+            // Remove after announcement (1 second)
+            setTimeout(() => liveRegion.remove(), 1000);
         }
 
         // Update stage indicators
@@ -627,7 +648,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 refreshPageBtn = document.createElement('button');
                 refreshPageBtn.className = 'refresh-page-btn';
                 refreshPageBtn.textContent = t('error.refresh_page');
-                refreshPageBtn.onclick = () => window.location.reload();
+                // FIX: Use addEventListener instead of onclick to prevent memory leaks
+                refreshPageBtn.addEventListener('click', handleRefreshPage);
                 // Insert after retry button if it exists
                 if (retryBtn && retryBtn.parentNode) {
                     retryBtn.parentNode.insertBefore(refreshPageBtn, retryBtn.nextSibling);
@@ -636,9 +658,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else if (refreshPageBtn) {
+            refreshPageBtn.removeEventListener('click', handleRefreshPage);
             refreshPageBtn.remove();
         }
 
+        // Handle retry button setup
         if (retryBtn) {
             // Disable retry button if max retries reached
             if (disableRetry) {
@@ -650,46 +674,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 retryBtn.style.opacity = '1';
                 retryBtn.style.cursor = 'pointer';
 
-                // Clear existing handler and add new one
-                retryBtn.onclick = null;
-                retryBtn.onclick = () => {
-                    // Prevent concurrent initialization
-                    if (window._initializationInProgress) {
-                        logger.debug('Initialization already in progress');
-                        return;
-                    }
-
-                    // Rate limiting check
-                    const now = Date.now();
-                    if (now - lastRetryTimestamp < RETRY_COOLDOWN_MS) {
-                        logger.debug(`Retry cooldown active. Please wait ${Math.ceil((RETRY_COOLDOWN_MS - (now - lastRetryTimestamp)) / 1000)}s`);
-                        return;
-                    }
-                    lastRetryTimestamp = now;
-
-                    // Reset UI elements
-                    if (errorContainer) errorContainer.style.display = 'none';
-                    const progressBar = loadingDiv?.querySelector('.progress-bar');
-                    const loadingStages = loadingDiv?.querySelector('.loading-stages');
-                    const loadingMessage = document.getElementById('loading-message');
-
-                    if (progressBar) progressBar.style.display = 'block';
-                    if (loadingStages) loadingStages.style.display = 'flex';
-                    if (loadingMessage) loadingMessage.style.display = 'block';
-
-                    // Reset all stages to pending
-                    const stages = document.querySelectorAll('.stage');
-                    stages.forEach(stage => {
-                        stage.classList.remove('stage-active', 'stage-complete');
-                        stage.classList.add('stage-pending');
-                    });
-
-                    // Reset progress bar
-                    const progressFill = document.getElementById('progress-fill');
-                    if (progressFill) progressFill.style.width = '0%';
-
-                    void initializeApp();
-                };
+                // FIX: Use addEventListener with named function to prevent memory leak
+                retryBtn.removeEventListener('click', handleRetryInit);
+                retryBtn.addEventListener('click', handleRetryInit);
             }
         }
 
@@ -701,6 +688,60 @@ document.addEventListener('DOMContentLoaded', () => {
         if (progressBar) progressBar.style.display = 'none';
         if (loadingStages) loadingStages.style.display = 'none';
         if (loadingMessage) loadingMessage.style.display = 'none';
+    }
+
+    /**
+     * Named function for refresh page button handler
+     * Prevents closure memory leaks
+     */
+    function handleRefreshPage() {
+        window.location.reload();
+    }
+
+    /**
+     * Named function for retry button handler
+     * Prevents closure memory leaks
+     */
+    function handleRetryInit() {
+        // Prevent concurrent initialization
+        if (window._initializationInProgress) {
+            logger.debug('Initialization already in progress');
+            return;
+        }
+
+        // Rate limiting check
+        const now = Date.now();
+        if (now - lastRetryTimestamp < RETRY_COOLDOWN_MS) {
+            logger.debug(`Retry cooldown active. Please wait ${Math.ceil((RETRY_COOLDOWN_MS - (now - lastRetryTimestamp)) / 1000)}s`);
+            return;
+        }
+        lastRetryTimestamp = now;
+
+        // Reset UI elements
+        const loadingDiv = document.getElementById('loading');
+        const errorContainer = document.getElementById('loading-error');
+
+        if (errorContainer) errorContainer.style.display = 'none';
+        const progressBar = loadingDiv?.querySelector('.progress-bar');
+        const loadingStages = loadingDiv?.querySelector('.loading-stages');
+        const loadingMessage = document.getElementById('loading-message');
+
+        if (progressBar) progressBar.style.display = 'block';
+        if (loadingStages) loadingStages.style.display = 'flex';
+        if (loadingMessage) loadingMessage.style.display = 'block';
+
+        // Reset all stages to pending
+        const stages = document.querySelectorAll('.stage');
+        stages.forEach(stage => {
+            stage.classList.remove('stage-active', 'stage-complete');
+            stage.classList.add('stage-pending');
+        });
+
+        // Reset progress bar
+        const progressFill = document.getElementById('progress-fill');
+        if (progressFill) progressFill.style.width = '0%';
+
+        void initializeApp();
     }
 
     async function loadRecommendation() {
@@ -1320,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        container.innerHTML = '';
+        container.replaceChildren(); // Modern, safe alternative to innerHTML = ''
 
         if (!history || history.length < 2) {
             const empty = document.createElement('span');

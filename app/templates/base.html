@@ -6,6 +6,7 @@
     <title>{% block title %}AI Training Optimizer{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/modal.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -54,6 +55,7 @@
 
     <script src="{{ url_for('static', path='/js/cache.js') }}"></script>
     <script src="{{ url_for('static', path='/js/prefetch.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/modal.js') }}"></script>
     <script src="{{ url_for('static', path='/js/base.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
