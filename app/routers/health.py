@@ -90,6 +90,7 @@ async def get_sync_status() -> dict:
 
     except Exception as e:
         logger.exception("Sync status check failed")
+        db.rollback()  # CRITICAL: Ensure uncommitted transactions are rolled back
         raise HTTPException(status_code=500, detail="Failed to check sync status")
     finally:
         db.close()

@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.shiftKey && window.dataCache) {
                 // Shift+Click = hard refresh (clear cache)
                 window.dataCache.clear();
-                console.log('Cache cleared!');
+                if (window.DEBUG_MODE) console.log('Cache cleared!');
                 window.location.reload();
             }
         });

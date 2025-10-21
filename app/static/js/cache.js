@@ -65,6 +65,9 @@ class DataCache {
             .join('&');
 
         // Include language header in cache key to prevent language-specific cache collisions
+        // IMPORTANT: Only Accept-Language affects API responses in this application
+        // If adding authentication (Authorization header) or other request-varying headers,
+        // update this cache key generation to include those headers
         const langHeader = headers['Accept-Language'] || '';
         const langPart = langHeader ? `&lang=${encodeURIComponent(langHeader)}` : '';
 

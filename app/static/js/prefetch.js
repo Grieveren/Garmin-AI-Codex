@@ -13,12 +13,12 @@ class DataPrefetcher {
      */
     async prefetchAllPages() {
         if (this.isPrefetching) {
-            console.log('Prefetch already in progress, skipping...');
+            if (window.DEBUG_MODE) console.log('Prefetch already in progress, skipping...');
             return;
         }
 
         this.isPrefetching = true;
-        console.log('Starting data prefetch...');
+        if (window.DEBUG_MODE) console.log('Starting data prefetch...');
 
         const prefetchTasks = [
             // Today's recommendation (if not already loaded)
@@ -59,7 +59,7 @@ class DataPrefetcher {
         const successful = results.filter(r => r.status === 'fulfilled').length;
         const failed = results.filter(r => r.status === 'rejected').length;
 
-        console.log(`Data prefetch complete! (${successful} successful, ${failed} failed)`);
+        if (window.DEBUG_MODE) console.log(`Data prefetch complete! (${successful} successful, ${failed} failed)`);
         this.isPrefetching = false;
     }
 
@@ -96,7 +96,7 @@ class DataPrefetcher {
      * Prefetch specific page data on demand
      */
     async prefetchPage(page) {
-        console.log(`Prefetching data for: ${page}`);
+        if (window.DEBUG_MODE) console.log(`Prefetching data for: ${page}`);
 
         switch (page) {
             case 'insights':
