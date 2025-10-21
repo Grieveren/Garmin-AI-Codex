@@ -130,9 +130,9 @@ class GarminService:
             {"age": 30, "lactate_threshold_hr": 160, "vo2_max": 52.0, "max_hr": 190}
         """
         try:
-            # Fetch personal information from Garmin API
-            personal_data = self._client.garth.connectapi(
-                "/userprofile-service/userprofile/personal-information"
+            # Fetch user settings which contains personal data
+            settings_data = self._client.garth.connectapi(
+                "/userprofile-service/userprofile/user-settings"
             )
 
             age = None
@@ -140,24 +140,28 @@ class GarminService:
             vo2_max = None
             max_hr = None
 
-            if isinstance(personal_data, dict):
-                # Extract age
-                age = personal_data.get("age")
+            if isinstance(settings_data, dict):
+                user_data = settings_data.get("userData", {})
+
+                # Extract age from birthDate
+                birth_date_str = user_data.get("birthDate")
+                if birth_date_str:
+                    from datetime import date as date_class
+                    birth_date = date_class.fromisoformat(birth_date_str)
+                    today = date_class.today()
+                    age = today.year - birth_date.year - (
+                        (today.month, today.day) < (birth_date.month, birth_date.day)
+                    )
 
                 # Extract lactate threshold HR
-                # API may return as lactateThresholdHeartRate or lactateThreshold
-                lactate_threshold_hr = personal_data.get("lactateThresholdHeartRate")
-                if lactate_threshold_hr is None:
-                    lactate_threshold_hr = personal_data.get("lactateThreshold")
-
-                # Convert to int if numeric
+                lactate_threshold_hr = user_data.get("lactateThresholdHeartRate")
                 if isinstance(lactate_threshold_hr, (int, float)):
                     lactate_threshold_hr = int(lactate_threshold_hr)
 
-                # Extract VO2 max (may be in various formats)
-                vo2_max = personal_data.get("vo2Max")
-                if vo2_max is None:
-                    vo2_max = personal_data.get("vo2MaxValue")
+                # Extract VO2 max (running)
+                vo2_max = user_data.get("vo2MaxRunning")
+                if isinstance(vo2_max, (int, float)):
+                    vo2_max = float(vo2_max)
 
                 # Calculate max HR from age if available
                 if age is not None and isinstance(age, int):
