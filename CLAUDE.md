@@ -125,6 +125,43 @@ Common task-to-agent mappings for this codebase:
 
 ---
 
+## Git Workflow Policy
+
+**CRITICAL: Always use feature branches. NEVER commit directly to main.**
+
+### Branch Naming Convention:
+- **Features:** `feature/description` (e.g., `feature/hr-zone-calculation`)
+- **Fixes:** `fix/description` (e.g., `fix/garmin-api-endpoint`)
+- **Experiments:** `experiment/description` (e.g., `experiment/alternative-ai-prompt`)
+- **Refactoring:** `refactor/description` (e.g., `refactor/data-processor`)
+
+### Standard Workflow:
+1. **Create branch:** `git checkout -b feature/your-feature`
+2. **Make changes** and commit with descriptive messages
+3. **Push branch:** `git push -u origin feature/your-feature`
+4. **Create Pull Request** on GitHub for review
+5. **Merge** after approval/review
+
+### Enforcement:
+- Pre-commit hook will **block** direct commits to `main` branch
+- Only way to bypass: `git commit --no-verify` (emergency use only)
+- All normal development must go through feature branches
+
+### Exception Policy:
+**Direct commits to main are ONLY allowed for:**
+- Critical production hotfixes that cannot wait for PR process
+- Must have explicit user approval before committing
+- Should still be rare (< 1% of commits)
+
+**Rationale:** Branch-based workflow enables:
+- Code review before merging
+- Parallel development without conflicts
+- Easy rollback of problematic changes
+- Clear feature history and attribution
+- CI/CD testing before main branch updates
+
+---
+
 ## Project Overview
 
 AI-Powered Training Optimization System that fetches Garmin fitness data, analyzes it using Claude AI, and generates adaptive daily workout recommendations. The system prevents overtraining through intelligent load management and provides personalized coaching based on recovery metrics (HRV, sleep, resting HR).
