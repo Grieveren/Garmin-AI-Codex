@@ -435,7 +435,7 @@ ONE instance only (enforced via filelock). Run as systemd/Docker/cloud scheduler
 
 **Alerts:**
 - `GET /api/alerts/active?days=7` - Get active training alerts from last N days (✅ IMPLEMENTED)
-- `POST /api/alerts/{id}/acknowledge` - Mark alert as acknowledged (✅ IMPLEMENTED)
+- `POST /api/alerts/{alert_id}/acknowledge` - Mark alert as acknowledged (✅ IMPLEMENTED)
 
 **Training Plans:**
 - `GET /api/training/plans/current` - Active training plan (backlog)

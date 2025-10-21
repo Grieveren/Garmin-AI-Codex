@@ -15,6 +15,7 @@ from anthropic import Anthropic
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models.database_models import DailyMetric
+from app.services.alert_detector import AlertDetector
 from app.services.data_processor import DataProcessor
 from app.services.garmin_service import GarminService
 from app.services.hr_zones import calculate_hr_zones, format_hr_zones_for_prompt
@@ -353,18 +354,16 @@ class AIAnalyzer:
 
         # Detect training alerts (overtraining, illness, injury)
         try:
-            from app.services.alert_detector import AlertDetector
-            from app.database import SessionLocal
-
             with SessionLocal() as session:
                 detector = AlertDetector()
-                alerts = detector.detect_alerts(target_date, session, context={"historical_baselines": historical_baselines})
+                # Pass historical_baselines directly - AlertDetector expects flat structure
+                alerts = detector.detect_alerts(target_date, session, context=historical_baselines)
                 if alerts:
                     result["alerts"] = alerts
                     logger.info("Detected %d alert(s) for %s", len(alerts), target_date.isoformat())
-        except Exception as e:
-            logger.warning("Alert detection failed: %s", str(e))
+        except (ValueError, KeyError, TypeError) as e:
             # Don't fail the entire analysis if alert detection fails
+            logger.warning("Alert detection failed: %s", str(e), exc_info=True)
 
         # Cache the response with TTL
         self._set_cached_response(cache_key, result)
