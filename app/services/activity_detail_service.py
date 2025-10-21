@@ -1,5 +1,6 @@
 """Service for fetching and caching detailed activity data."""
 import logging
+import time
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -225,7 +226,12 @@ class ActivityDetailService:
             except Exception as err:
                 failed += 1
                 failed_ids.append(activity_id)
-                logger.error("Exception fetching details for activity %d: %s", activity_id, err)
+                logger.error("Exception fetching details for activity %d: %s", activity_id, err, exc_info=True)
+
+            # Rate limiting: Sleep 1 second between API requests to prevent throttling
+            if i < len(activity_ids) - 1:  # Don't sleep after last item
+                time.sleep(1.0)
+                logger.debug("Rate limiting: sleeping 1s before next request")
 
         summary = {
             "total": total,

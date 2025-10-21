@@ -1,6 +1,7 @@
 """Claude AI-powered training readiness analysis."""
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import threading
@@ -67,6 +68,16 @@ class AIAnalyzer:
         duration_config = activity_config.get("duration", {})
         self.duration_minimum_seconds = duration_config.get("minimum_seconds", 1800)
         self.duration_long_minutes = duration_config.get("long_duration_minutes", 90)
+
+        # Performance analysis thresholds (Phase 1 + Phase 2)
+        perf_config = prompt_config.get("performance_analysis", {})
+        self.workout_recency_hours = perf_config.get("workout_recency_hours", 72)
+        self.min_duration_seconds = perf_config.get("min_duration_seconds", 300)
+        self.similar_workout_lookback_days = perf_config.get("similar_workout_lookback_days", 14)
+        self.min_similar_workouts = perf_config.get("min_similar_workouts", 2)
+        self.hr_deviation_threshold = perf_config.get("hr_deviation_threshold", 5.0)
+        self.pace_deviation_threshold_pct = perf_config.get("pace_deviation_threshold_pct", 5.0)
+        self.stable_threshold = perf_config.get("stable_threshold", 5.0)
 
     def _get_cached_response(self, cache_key: tuple[date, str | None]) -> dict[str, Any] | None:
         """Retrieve cached response if valid (not expired). Thread-safe."""
@@ -146,26 +157,34 @@ class AIAnalyzer:
         """
         now = datetime.utcnow()
 
-        # Check cache (thread-safe)
+        # First check (fast path - unlocked read)
         with self._cache_lock:
             if (self._personal_info_cache is not None
                 and self._personal_info_expires_at is not None
                 and now < self._personal_info_expires_at):
-                logger.debug("Using cached personal info")
+                logger.debug("Using cached personal info (fast path)")
                 return self._personal_info_cache
 
-        # Fetch fresh data (outside lock to avoid blocking)
+        # Fetch fresh data (outside lock to avoid blocking other threads)
         logger.debug("Fetching fresh personal info from Garmin")
         personal_info = garmin.get_personal_info()
 
-        # Cache if successful (no error key)
-        if personal_info.get("error") is None:
-            with self._cache_lock:
+        # Second check (slow path - double-checked locking)
+        with self._cache_lock:
+            # Verify another thread didn't already cache fresh data while we were fetching
+            if (self._personal_info_cache is not None
+                and self._personal_info_expires_at is not None
+                and now < self._personal_info_expires_at):
+                logger.debug("Another thread cached data while we were fetching, using theirs")
+                return self._personal_info_cache
+
+            # We're first - cache our fetched data if successful
+            if personal_info.get("error") is None:
                 self._personal_info_cache = personal_info
                 self._personal_info_expires_at = now + timedelta(hours=self._PERSONAL_INFO_TTL_HOURS)
-            logger.info("Cached personal info for %dh", self._PERSONAL_INFO_TTL_HOURS)
-        else:
-            logger.warning("Personal info fetch failed, not caching: %s", personal_info.get("error"))
+                logger.info("Cached personal info for %dh", self._PERSONAL_INFO_TTL_HOURS)
+            else:
+                logger.warning("Personal info fetch failed, not caching: %s", personal_info.get("error"))
 
         return personal_info
 
@@ -471,11 +490,9 @@ class AIAnalyzer:
             }
 
         Configuration:
-            workout_recency_hours: 72 (hardcoded for now, will move to config)
+            workout_recency_hours: Loaded from config (default: 72)
+            min_duration_seconds: Loaded from config (default: 300)
         """
-        WORKOUT_RECENCY_HOURS = 72
-        MIN_DURATION_SECONDS = 300  # 5 minutes minimum to be considered a workout
-
         if not activities or "error" in str(activities):
             return None
 
@@ -500,12 +517,12 @@ class AIAnalyzer:
             time_diff = target_date - activity_date
             hours_since = time_diff.total_seconds() / 3600
 
-            if hours_since < 0 or hours_since > WORKOUT_RECENCY_HOURS:
+            if hours_since < 0 or hours_since > self.workout_recency_hours:
                 continue
 
             # Skip very short activities
             duration = activity.get("duration")
-            if not duration or duration < MIN_DURATION_SECONDS:
+            if not duration or duration < self.min_duration_seconds:
                 continue
 
             # Track most recent
@@ -581,12 +598,9 @@ class AIAnalyzer:
             }
 
         Configuration:
-            similar_workout_lookback_days: 14 (hardcoded)
-            min_similar_workouts: 2 (minimum to calculate trend)
+            similar_workout_lookback_days: Loaded from config (default: 14)
+            min_similar_workouts: Loaded from config (default: 2)
         """
-        SIMILAR_WORKOUT_LOOKBACK_DAYS = 14
-        MIN_SIMILAR_WORKOUTS = 2
-
         if not recent_activity or not all_activities:
             return {
                 "avg_hr_baseline": None,
@@ -600,7 +614,7 @@ class AIAnalyzer:
 
         recent_type = recent_activity["activity_type"]
         recent_date = recent_activity["date"]
-        cutoff_date = recent_date - timedelta(days=SIMILAR_WORKOUT_LOOKBACK_DAYS)
+        cutoff_date = recent_date - timedelta(days=self.similar_workout_lookback_days)
 
         # Find similar workouts (same activity type, excluding the recent one)
         similar_workouts: list[dict[str, Any]] = []
@@ -631,7 +645,7 @@ class AIAnalyzer:
 
             similar_workouts.append(activity)
 
-        if len(similar_workouts) < MIN_SIMILAR_WORKOUTS:
+        if len(similar_workouts) < self.min_similar_workouts:
             return {
                 "avg_hr_baseline": None,
                 "avg_pace_baseline": None,
@@ -714,17 +728,14 @@ class AIAnalyzer:
 
         Returns:
             Performance condition verdict:
-            - "Strong": HR lower OR pace faster (beyond ±5%)
-            - "Normal": Within ±5% of baseline
-            - "Fatigued": HR higher OR pace slower (beyond ±5%)
+            - "Strong": HR lower OR pace faster (beyond threshold)
+            - "Normal": Within threshold of baseline
+            - "Fatigued": HR higher OR pace slower (beyond threshold)
 
         Configuration:
-            hr_deviation_threshold: 5 bpm (hardcoded)
-            pace_deviation_threshold_pct: 5% (hardcoded)
+            hr_deviation_threshold: Loaded from config (default: 5 bpm)
+            pace_deviation_threshold_pct: Loaded from config (default: 5%)
         """
-        HR_DEVIATION_THRESHOLD = 5.0  # bpm
-        PACE_DEVIATION_THRESHOLD_PCT = 5.0  # percent
-
         hr_deviation = comparison.get("hr_deviation_bpm")
         pace_deviation_pct = comparison.get("pace_deviation_pct")
 
@@ -733,15 +744,15 @@ class AIAnalyzer:
             return "Normal"
 
         # Check for strong performance (HR lower OR pace faster)
-        if hr_deviation is not None and hr_deviation < -HR_DEVIATION_THRESHOLD:
+        if hr_deviation is not None and hr_deviation < -self.hr_deviation_threshold:
             return "Strong"
-        if pace_deviation_pct is not None and pace_deviation_pct < -PACE_DEVIATION_THRESHOLD_PCT:
+        if pace_deviation_pct is not None and pace_deviation_pct < -self.pace_deviation_threshold_pct:
             return "Strong"
 
         # Check for fatigue (HR higher OR pace slower)
-        if hr_deviation is not None and hr_deviation > HR_DEVIATION_THRESHOLD:
+        if hr_deviation is not None and hr_deviation > self.hr_deviation_threshold:
             return "Fatigued"
-        if pace_deviation_pct is not None and pace_deviation_pct > PACE_DEVIATION_THRESHOLD_PCT:
+        if pace_deviation_pct is not None and pace_deviation_pct > self.pace_deviation_threshold_pct:
             return "Fatigued"
 
         # Within threshold = Normal
@@ -768,8 +779,8 @@ class AIAnalyzer:
             from app.database import SessionLocal
             from app.services.activity_detail_helper import ActivityDetailHelper
 
-            db = SessionLocal()
-            try:
+            # Use context manager to ensure proper session cleanup
+            with contextlib.closing(SessionLocal()) as db:
                 helper = ActivityDetailHelper()
                 cached = helper.get_cached_detail(db, activity_id)
 
@@ -829,11 +840,8 @@ class AIAnalyzer:
                     "splits_summary": splits_summary,
                 }
 
-            finally:
-                db.close()
-
         except Exception as e:
-            logger.warning("Failed to fetch detail metrics for activity %d: %s", activity_id, e)
+            logger.warning("Failed to fetch detail metrics for activity %d: %s", activity_id, e, exc_info=True)
             return None
 
     def _format_recent_workout_analysis(

@@ -174,6 +174,10 @@ class ActivityDetailHelper:
         Returns:
             ActivityDetail: Created or updated record
         """
+        # Input validation to prevent SQL injection
+        if not isinstance(activity_id, int):
+            raise ValueError(f"activity_id must be an integer, got {type(activity_id).__name__}")
+
         # Check if record exists
         detail = session.query(ActivityDetail).filter_by(activity_id=activity_id).first()
 
@@ -243,4 +247,8 @@ class ActivityDetailHelper:
         Returns:
             ActivityDetail or None
         """
+        # Input validation to prevent SQL injection
+        if not isinstance(activity_id, int):
+            raise ValueError(f"activity_id must be an integer, got {type(activity_id).__name__}")
+
         return session.query(ActivityDetail).filter_by(activity_id=activity_id).first()
