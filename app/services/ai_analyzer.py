@@ -497,24 +497,26 @@ class AIAnalyzer:
             return None
 
         most_recent = None
-        most_recent_date = None
+        most_recent_datetime = None
+        current_datetime = datetime.combine(target_date, datetime.now().time())
 
         for activity in activities:
             if not isinstance(activity, dict) or "error" in activity:
                 continue
 
-            # Extract activity date
+            # Extract activity datetime (parse full timestamp including time)
             start_time_local = activity.get("startTimeLocal")
             if not start_time_local:
                 continue
 
             try:
-                activity_date = date.fromisoformat(start_time_local[:10])
+                # Parse full datetime (YYYY-MM-DDTHH:MM:SS)
+                activity_datetime = datetime.fromisoformat(start_time_local[:19])
             except (ValueError, TypeError):
                 continue
 
-            # Check if within recency window
-            time_diff = target_date - activity_date
+            # Check if within recency window (compare to current datetime)
+            time_diff = current_datetime - activity_datetime
             hours_since = time_diff.total_seconds() / 3600
 
             if hours_since < 0 or hours_since > self.workout_recency_hours:
@@ -525,10 +527,10 @@ class AIAnalyzer:
             if not duration or duration < self.min_duration_seconds:
                 continue
 
-            # Track most recent
-            if most_recent_date is None or activity_date > most_recent_date:
+            # Track most recent (based on datetime, not just date)
+            if most_recent_datetime is None or activity_datetime > most_recent_datetime:
                 most_recent = activity
-                most_recent_date = activity_date
+                most_recent_datetime = activity_datetime
 
         if not most_recent:
             return None
@@ -552,8 +554,8 @@ class AIAnalyzer:
             # Convert to min/km
             avg_pace = (duration_seconds / (distance_meters / 1000)) / 60
 
-        # Calculate hours since workout
-        time_diff = target_date - most_recent_date
+        # Calculate hours since workout (using current datetime for accurate intra-day calculation)
+        time_diff = current_datetime - most_recent_datetime
         hours_since = time_diff.total_seconds() / 3600
 
         # Fetch Phase 2 detailed metrics (cached only - no API call)
@@ -563,7 +565,7 @@ class AIAnalyzer:
 
         return {
             "activity_type": activity_type,
-            "date": most_recent_date,
+            "date": most_recent_datetime.date(),  # Return date for compatibility
             "duration_seconds": duration_seconds,
             "distance_meters": distance_meters,
             "avg_hr": avg_hr,

@@ -6,8 +6,9 @@ Tests cover:
 - _calculate_performance_condition: Determine performance state (Strong/Normal/Fatigued)
 - _format_recent_workout_analysis: Format for AI prompt inclusion
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -48,11 +49,12 @@ def create_activity(
     max_hr: int | None = 180,
     aerobic_te: float | None = 3.0,
     anaerobic_te: float | None = 0.5,
+    time_str: str = "08:00:00",
 ) -> dict:
     """Helper to create realistic Garmin activity data."""
     return {
         "activityType": {"typeKey": activity_type},
-        "startTimeLocal": f"{date_str}T08:00:00",
+        "startTimeLocal": f"{date_str}T{time_str}",
         "duration": duration_seconds,
         "distance": distance_meters,
         "averageHR": avg_hr,
@@ -74,21 +76,30 @@ class TestAnalyzeMostRecentWorkout:
         target_date = date(2025, 10, 21)
         yesterday = (target_date - timedelta(days=1)).isoformat()
 
-        activities = [
-            create_activity("running", yesterday, duration_seconds=2400, distance_meters=8000)
-        ]
+        # Mock datetime.now() to return 8 AM so calculations are deterministic
+        mock_now = datetime(2025, 10, 21, 8, 0, 0)
 
-        result = analyzer._analyze_most_recent_workout(activities, target_date)
+        with patch('app.services.ai_analyzer.datetime') as mock_datetime:
+            # Configure mock to return our fixed time
+            mock_datetime.now.return_value = mock_now
+            mock_datetime.combine = datetime.combine
+            mock_datetime.fromisoformat = datetime.fromisoformat
 
-        assert result is not None
-        assert result["activity_type"] == "running"
-        assert result["date"] == date(2025, 10, 20)
-        assert result["duration_seconds"] == 2400
-        assert result["distance_meters"] == 8000
-        assert result["avg_hr"] == 150
-        assert result["max_hr"] == 180
-        assert result["aerobic_training_effect"] == 3.0
-        assert result["hours_since_workout"] == pytest.approx(24.0)
+            activities = [
+                create_activity("running", yesterday, duration_seconds=2400, distance_meters=8000)
+            ]
+
+            result = analyzer._analyze_most_recent_workout(activities, target_date)
+
+            assert result is not None
+            assert result["activity_type"] == "running"
+            assert result["date"] == date(2025, 10, 20)
+            assert result["duration_seconds"] == 2400
+            assert result["distance_meters"] == 8000
+            assert result["avg_hr"] == 150
+            assert result["max_hr"] == 180
+            assert result["aerobic_training_effect"] == 3.0
+            assert result["hours_since_workout"] == pytest.approx(24.0)
 
     def test_no_recent_workout_beyond_72h(self, analyzer):
         """Test that workout older than 72h returns None."""
@@ -212,17 +223,54 @@ class TestAnalyzeMostRecentWorkout:
         """Test accurate calculation of hours since workout."""
         target_date = date(2025, 10, 21)
 
-        # Test various time differences (only using full days since we work with date objects)
-        test_cases = [
-            ((target_date - timedelta(days=1)).isoformat(), 24.0),
-            ((target_date - timedelta(days=2)).isoformat(), 48.0),
-            ((target_date - timedelta(days=3)).isoformat(), 72.0),
-        ]
+        # Mock datetime.now() to return 8 AM so calculations are deterministic
+        mock_now = datetime(2025, 10, 21, 8, 0, 0)
 
-        for date_str, expected_hours in test_cases:
-            activities = [create_activity("running", date_str)]
-            result = analyzer._analyze_most_recent_workout(activities, target_date)
-            assert result["hours_since_workout"] == pytest.approx(expected_hours, abs=0.1)
+        with patch('app.services.ai_analyzer.datetime') as mock_datetime:
+            # Configure mock to return our fixed time
+            mock_datetime.now.return_value = mock_now
+            mock_datetime.combine = datetime.combine
+            mock_datetime.fromisoformat = datetime.fromisoformat
+
+            # Test various time differences (workouts at 8 AM on different days)
+            test_cases = [
+                ((target_date - timedelta(days=1)).isoformat(), 24.0),  # Yesterday 8 AM
+                ((target_date - timedelta(days=2)).isoformat(), 48.0),  # 2 days ago 8 AM
+                ((target_date - timedelta(days=3)).isoformat(), 72.0),  # 3 days ago 8 AM
+            ]
+
+            for date_str, expected_hours in test_cases:
+                activities = [create_activity("running", date_str)]
+                result = analyzer._analyze_most_recent_workout(activities, target_date)
+                assert result["hours_since_workout"] == pytest.approx(expected_hours, abs=0.1)
+
+    def test_same_day_workout_hours_calculation(self, analyzer):
+        """Test accurate intra-day hours calculation for workouts on same day."""
+        target_date = date(2025, 10, 21)
+
+        # Mock datetime.now() to return a fixed time (14:00:00 / 2 PM)
+        mock_now = datetime(2025, 10, 21, 14, 0, 0)
+
+        with patch('app.services.ai_analyzer.datetime') as mock_datetime:
+            # Configure mock to return our fixed time
+            mock_datetime.now.return_value = mock_now
+            mock_datetime.combine = datetime.combine
+            mock_datetime.fromisoformat = datetime.fromisoformat
+
+            # Test cases: workouts at different times today
+            test_cases = [
+                ("08:00:00", 6.0),   # 8 AM workout, checked at 2 PM = 6 hours ago
+                ("10:00:00", 4.0),   # 10 AM workout, checked at 2 PM = 4 hours ago
+                ("12:00:00", 2.0),   # 12 PM workout, checked at 2 PM = 2 hours ago
+                ("13:30:00", 0.5),   # 1:30 PM workout, checked at 2 PM = 0.5 hours ago
+            ]
+
+            for time_str, expected_hours in test_cases:
+                activities = [create_activity("running", target_date.isoformat(), time_str=time_str)]
+                result = analyzer._analyze_most_recent_workout(activities, target_date)
+                assert result is not None, f"Should find workout at {time_str}"
+                assert result["hours_since_workout"] == pytest.approx(expected_hours, abs=0.1), \
+                    f"Workout at {time_str} should be {expected_hours} hours ago (got {result['hours_since_workout']})"
 
 
 # ============================================================================
