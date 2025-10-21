@@ -25,6 +25,13 @@ async def get_active_alerts(
     Returns:
         Dictionary with count and list of active alerts
     """
+    # Validate days parameter to prevent excessive database queries
+    if days < 1 or days > 365:
+        raise HTTPException(
+            status_code=400,
+            detail="days parameter must be between 1 and 365"
+        )
+
     cutoff_date = date.today() - timedelta(days=days)
 
     alerts = (
