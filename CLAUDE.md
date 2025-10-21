@@ -125,6 +125,72 @@ Common task-to-agent mappings for this codebase:
 
 ---
 
+## Git Workflow Policy
+
+**CRITICAL: Always use feature branches. NEVER commit directly to main.**
+
+### Branch Naming Convention:
+- **Features:** `feature/description` (e.g., `feature/hr-zone-calculation`)
+- **Fixes:** `fix/description` (e.g., `fix/garmin-api-endpoint`)
+- **Experiments:** `experiment/description` (e.g., `experiment/alternative-ai-prompt`)
+- **Refactoring:** `refactor/description` (e.g., `refactor/data-processor`)
+
+### Workflow (Solo Developer + AI Agent):
+
+**Tier 1: Most Changes (90% of work)**
+```bash
+# 1. Create branch (prevents accidental main commits)
+git checkout -b fix/your-feature
+
+# 2. Make changes, commit with descriptive message
+git add .
+git commit -m "Descriptive commit message"
+
+# 3. Merge directly to main (no PR needed)
+git checkout main
+git merge fix/your-feature --ff-only  # Fast-forward merge
+# OR: git merge fix/your-feature --squash  # Single clean commit
+
+# 4. Push to remote
+git push
+
+# 5. Delete feature branch
+git branch -d fix/your-feature
+```
+
+**Tier 2: Major Features (10% of work - Optional PR)**
+Use full PR workflow when:
+- Making architectural changes you want documented in PR history
+- Running CI/CD validation before merging
+- Changes you might want to revert easily
+- Features you want to share/discuss with others
+
+```bash
+git checkout -b feature/major-change
+# ... make changes, commit ...
+git push -u origin feature/major-change
+# Create PR on GitHub → Review → Merge via web interface
+```
+
+### Enforcement:
+- Pre-commit hook **blocks** direct commits to `main` branch
+- Forces branch creation (prevents accidents)
+- Bypass only with `--no-verify` (emergency use only)
+
+### Exception Policy:
+**Direct commits to main are ONLY allowed for:**
+- Critical production hotfixes (with explicit user approval)
+- Should be extremely rare (< 1% of commits)
+
+**Rationale:**
+- **Prevents accidents** - Can't accidentally commit incomplete work to main
+- **Clean history** - `--squash` option creates single commit per feature
+- **Easy rollback** - Can revert entire feature with one command
+- **Flexible** - No mandatory PR overhead for small changes
+- **Real-time review** - Code review happens during AI conversation, not after
+
+---
+
 ## Project Overview
 
 AI-Powered Training Optimization System that fetches Garmin fitness data, analyzes it using Claude AI, and generates adaptive daily workout recommendations. The system prevents overtraining through intelligent load management and provides personalized coaching based on recovery metrics (HRV, sleep, resting HR).
