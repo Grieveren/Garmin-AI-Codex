@@ -427,3 +427,37 @@ class GarminService:
         )
 
         return result
+
+    @staticmethod
+    def extract_recovery_time(training_readiness: Any) -> int | None:
+        """
+        Extract recovery time in hours from Garmin training_readiness API response.
+
+        Args:
+            training_readiness: Response from get_training_readiness() API call
+                              Expected format: list[dict] with "recoveryTime" in minutes
+
+        Returns:
+            Recovery time in hours (rounded to nearest hour), or None if unavailable
+
+        Example:
+            >>> training_readiness = [{"score": 30, "recoveryTime": 2220}]
+            >>> GarminService.extract_recovery_time(training_readiness)
+            37
+        """
+        if not training_readiness:
+            return None
+
+        # Training readiness returns array, use first/most recent entry
+        if isinstance(training_readiness, list) and len(training_readiness) > 0:
+            if isinstance(training_readiness[0], dict) and "recoveryTime" in training_readiness[0]:
+                recovery_minutes = training_readiness[0].get("recoveryTime")
+
+                # Validate type and ensure non-negative
+                if isinstance(recovery_minutes, (int, float)) and recovery_minutes >= 0:
+                    # Convert minutes to hours (round to nearest hour)
+                    return int(round(recovery_minutes / 60))
+                elif isinstance(recovery_minutes, str) and recovery_minutes.isdigit():
+                    return int(round(int(recovery_minutes) / 60))
+
+        return None

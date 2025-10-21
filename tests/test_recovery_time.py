@@ -290,6 +290,81 @@ class TestSyncScriptExtraction:
         assert metrics["recovery_time_hours"] == 96
 
 
+class TestRecoveryTimeExtraction:
+    """Test GarminService.extract_recovery_time() static method with edge cases."""
+
+    def test_extract_valid_minutes_to_hours(self):
+        """Test conversion from minutes to hours (2220 min = 37 hours)."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 30, "recoveryTime": 2220}]
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result == 37
+
+    def test_extract_float_minutes_rounds_correctly(self):
+        """Test float values round to nearest hour (870.5 min = 15 hours)."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 30, "recoveryTime": 870.5}]  # 14.5 hours
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result == 15  # Rounds up
+
+    def test_extract_negative_value_returns_none(self):
+        """Test negative values are rejected and return None."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 30, "recoveryTime": -120}]
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result is None
+
+    def test_extract_string_numeric_converts(self):
+        """Test numeric strings are converted correctly."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 30, "recoveryTime": "1800"}]  # 30 hours
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result == 30
+
+    def test_extract_string_non_numeric_returns_none(self):
+        """Test non-numeric strings return None."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 30, "recoveryTime": "N/A"}]
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result is None
+
+    def test_extract_zero_recovery_time(self):
+        """Test zero recovery time (fully recovered)."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 100, "recoveryTime": 0}]
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result == 0
+
+    def test_extract_missing_recovery_time_key(self):
+        """Test missing recoveryTime key returns None."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = [{"score": 30}]  # No recoveryTime
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result is None
+
+    def test_extract_empty_list_returns_none(self):
+        """Test empty training_readiness list returns None."""
+        from app.services.garmin_service import GarminService
+
+        training_readiness = []
+        result = GarminService.extract_recovery_time(training_readiness)
+        assert result is None
+
+    def test_extract_none_input_returns_none(self):
+        """Test None input returns None gracefully."""
+        from app.services.garmin_service import GarminService
+
+        result = GarminService.extract_recovery_time(None)
+        assert result is None
+
+
 class TestMigrationScript:
     """Test migration script adds column safely and idempotently."""
 

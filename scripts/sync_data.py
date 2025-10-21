@@ -172,25 +172,11 @@ def fetch_daily_metrics(garmin: GarminService, target_date: date, verbose: bool 
                                 break
 
         # Recovery Time - from training_readiness API (in minutes, convert to hours)
-        # training_readiness returns array, use first/most recent entry
-        logger.debug("Training readiness type: %s, value: %s", type(training_readiness), training_readiness)
-        if training_readiness and isinstance(training_readiness, list) and len(training_readiness) > 0:
-            logger.debug("Training readiness[0]: %s", training_readiness[0])
-            if isinstance(training_readiness[0], dict) and "recoveryTime" in training_readiness[0]:
-                recovery_minutes = training_readiness[0].get("recoveryTime")
-                logger.info("Found recovery time: %s minutes", recovery_minutes)
-                # Validate type and ensure non-negative
-                if isinstance(recovery_minutes, (int, float)) and recovery_minutes >= 0:
-                    # Convert minutes to hours (round to nearest hour)
-                    metrics["recovery_time_hours"] = int(round(recovery_minutes / 60))
-                    logger.info("Set recovery_time_hours to %d hours", metrics["recovery_time_hours"])
-                elif isinstance(recovery_minutes, str) and recovery_minutes.isdigit():
-                    metrics["recovery_time_hours"] = int(round(int(recovery_minutes) / 60))
-                    logger.info("Set recovery_time_hours to %d hours (from string)", metrics["recovery_time_hours"])
-            else:
-                logger.warning("Training readiness[0] is not dict or missing recoveryTime key")
-        else:
-            logger.warning("Training readiness not available or not a list")
+        recovery_time_hours = garmin.extract_recovery_time(training_readiness)
+        if recovery_time_hours is not None:
+            metrics["recovery_time_hours"] = recovery_time_hours
+            if verbose:
+                logger.info("Recovery time: %d hours", recovery_time_hours)
 
         # SPO2 (Blood Oxygen) - Garmin uses different keys
         if spo2 and isinstance(spo2, dict):
