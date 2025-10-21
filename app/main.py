@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.logging_config import configure_logging
-from app.routers import analytics, health, manual_sync, recommendations, training_plans
+from app.routers import alerts, analytics, health, manual_sync, recommendations, training_plans
 
 
 configure_logging()
@@ -45,6 +45,7 @@ async def health_check() -> dict[str, str]:
 
 
 # Include routers
+app.include_router(alerts.router)
 app.include_router(health.router)
 app.include_router(manual_sync.router)
 app.include_router(recommendations.router)

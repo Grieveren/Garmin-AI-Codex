@@ -3,7 +3,8 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import get_settings
@@ -11,6 +12,14 @@ from app.config import get_settings
 
 settings = get_settings()
 engine = create_engine(settings.database_url, echo=settings.debug, future=True)
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_conn, connection_record):
+    """Enable foreign key enforcement for SQLite."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 class Base(DeclarativeBase):

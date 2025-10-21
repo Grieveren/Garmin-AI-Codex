@@ -351,6 +351,21 @@ class AIAnalyzer:
 
         result["generated_at"] = datetime.utcnow().isoformat() + "Z"
 
+        # Detect training alerts (overtraining, illness, injury)
+        try:
+            from app.services.alert_detector import AlertDetector
+            from app.database import SessionLocal
+
+            with SessionLocal() as session:
+                detector = AlertDetector()
+                alerts = detector.detect_alerts(target_date, session, context={"historical_baselines": historical_baselines})
+                if alerts:
+                    result["alerts"] = alerts
+                    logger.info("Detected %d alert(s) for %s", len(alerts), target_date.isoformat())
+        except Exception as e:
+            logger.warning("Alert detection failed: %s", str(e))
+            # Don't fail the entire analysis if alert detection fails
+
         # Cache the response with TTL
         self._set_cached_response(cache_key, result)
 

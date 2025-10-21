@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for historical data tracking."""
 from datetime import date, datetime
-from sqlalchemy import Integer, Date, DateTime, Float, String, Boolean, Text, ForeignKey, JSON
+from sqlalchemy import Integer, Date, DateTime, Float, String, Boolean, Text, ForeignKey, JSON, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -179,3 +179,62 @@ class PlannedWorkout(Base):
     # Relationships
     plan: Mapped["TrainingPlan"] = relationship("TrainingPlan", back_populates="workouts")
     activity: Mapped["Activity | None"] = relationship("Activity", foreign_keys=[actual_activity_id])
+
+
+class TrainingAlert(Base):
+    """Training alerts for overtraining, illness, and injury risk detection."""
+
+    __tablename__ = "training_alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Alert classification
+    alert_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # overtraining, illness, injury
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # warning, critical
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    recommendation: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Trigger information
+    trigger_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    trigger_metrics: Mapped[dict] = mapped_column(JSON, nullable=False)  # Detailed metrics that triggered alert
+
+    # Related data
+    daily_metric_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("daily_metrics.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    related_activity_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)  # List of activity IDs involved
+
+    # Status tracking
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)  # active, acknowledged, resolved
+    priority: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # 1=high, 2=medium, 3=low
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Table arguments for composite indexes
+    __table_args__ = (
+        # Composite index for active alerts query
+        Index(
+            "ix_training_alerts_active_recent",
+            "trigger_date",
+            "status",
+        ),
+        # Unique constraint for deduplication (prevents race condition)
+        Index(
+            "ix_training_alerts_unique_active",
+            "trigger_date",
+            "alert_type",
+            "status",
+            unique=True,
+        ),
+    )
+
+    # Relationship
+    daily_metric: Mapped["DailyMetric | None"] = relationship("DailyMetric", foreign_keys=[daily_metric_id])

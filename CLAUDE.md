@@ -288,6 +288,16 @@ python scripts/migrate_phase1_metrics.py     # Phase 1 migration
 - HR drift calculation (percentage increase/decrease from start to finish)
 - Cache validation and refetch logic
 
+**AlertDetector** - Detects training alerts based on physiological metrics:
+- **Alert Types**: Overtraining, illness risk, injury risk
+- **Overtraining Detection**: HRV drops, consecutive hard training days, sleep debt
+- **Illness Detection**: Combined HRV drop + elevated resting HR patterns
+- **Injury Detection**: ACWR thresholds, weekly load increases
+- Scientifically-backed thresholds from `app/config/prompts.yaml`
+- Stores alerts in `training_alerts` table with severity levels (warning/critical)
+- Alert deduplication with optimistic locking pattern
+- Integrated with AIAnalyzer for automatic daily detection
+
 ### Database Models (`app/models/database_models.py`)
 
 Key tables (refer to AI_Training_Optimizer_Specification.md for full schema):
@@ -295,6 +305,7 @@ Key tables (refer to AI_Training_Optimizer_Specification.md for full schema):
 - `sleep_sessions` - Detailed sleep stage data
 - `activities` - Garmin workouts with training effect/load
 - **`activity_details`** - Detailed activity data (splits, HR zones, weather) with derived metrics
+- **`training_alerts`** - Training alerts (overtraining, illness, injury) with severity, triggers, and lifecycle tracking
 - `daily_readiness` - AI-generated readiness scores and recommendations
 - `training_plans` / `planned_workouts` - Structured training programs
 - `training_load_tracking` - ACWR, fitness/fatigue/form
@@ -421,6 +432,10 @@ ONE instance only (enforced via filelock). Run as systemd/Docker/cloud scheduler
 **Recommendations:**
 - `GET /api/recommendations/today` - Today's AI-generated workout (✅ IMPLEMENTED)
 - `POST /api/recommendations/adapt-plan` - Modify plan based on readiness (backlog)
+
+**Alerts:**
+- `GET /api/alerts/active?days=7` - Get active training alerts from last N days (✅ IMPLEMENTED)
+- `POST /api/alerts/{id}/acknowledge` - Mark alert as acknowledged (✅ IMPLEMENTED)
 
 **Training Plans:**
 - `GET /api/training/plans/current` - Active training plan (backlog)

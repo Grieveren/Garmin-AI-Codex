@@ -1,3 +1,21 @@
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text safe for HTML insertion
+ */
+function escapeHtml(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refresh-btn');
     const syncBtn = document.getElementById('sync-btn');
@@ -438,6 +456,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.dataPrefetcher) {
         window.dataPrefetcher.initPrefetch();
     }
+
+    // Load alerts on page initialization
+    void loadAlerts();
 
     // Cleanup active requests on page unload
     window.addEventListener('pagehide', () => {
@@ -1625,4 +1646,150 @@ document.addEventListener('DOMContentLoaded', () => {
             return String(vars[varName]);
         });
     }
+
+    /**
+     * Load and display training alerts
+     */
+    async function loadAlerts() {
+        const alertsSection = document.getElementById('alerts-section');
+        const alertsList = document.getElementById('alerts-list');
+
+        if (!alertsSection || !alertsList) {
+            logger.debug('Alerts container not found');
+            return;
+        }
+
+        try {
+            const response = await fetchWithTimeout('/api/alerts/active?days=7', {
+                headers: {
+                    'Accept-Language': getAcceptLanguageHeader(),
+                },
+            }, 10000); // 10 second timeout
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch alerts: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const alerts = data.alerts || [];
+
+            if (alerts.length === 0) {
+                alertsSection.style.display = 'none';
+            } else {
+                displayAlerts(alerts);
+                alertsSection.style.display = 'block';
+            }
+        } catch (error) {
+            logger.error('Error loading alerts:', error);
+            // Hide alerts section on error (graceful degradation)
+            alertsSection.style.display = 'none';
+        }
+    }
+
+    /**
+     * Display alerts in the UI
+     * @param {Array} alerts - Array of alert objects
+     */
+    function displayAlerts(alerts) {
+        const alertsList = document.getElementById('alerts-list');
+        if (!alertsList) {
+            return;
+        }
+
+        // Clear existing content
+        alertsList.textContent = '';
+
+        // Create alert cards
+        alerts.forEach(alert => {
+            const cardHtml = createAlertCard(alert);
+            alertsList.insertAdjacentHTML('beforeend', cardHtml);
+        });
+    }
+
+    /**
+     * Create HTML for a single alert card
+     * @param {Object} alert - Alert object
+     * @returns {string} HTML string
+     */
+    function createAlertCard(alert) {
+        const severityIcon = alert.severity === 'critical' ? '⚠️' : '⚡';
+        const severityClass = alert.severity === 'critical' ? 'alert-critical' : 'alert-warning';
+
+        // Format date
+        const alertDate = new Date(alert.detected_at);
+        const formattedDate = alertDate.toLocaleDateString(dateLocales[currentLanguage] || dateLocales[FALLBACK_LANGUAGE], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Format trigger metrics as readable text
+        let metricsHtml = '';
+        if (alert.trigger_metrics && typeof alert.trigger_metrics === 'object') {
+            const metricsEntries = Object.entries(alert.trigger_metrics)
+                .map(([key, value]) => {
+                    const readableKey = humanizeLabel(key);
+                    const formattedValue = typeof value === 'number' ? value.toFixed(2) : String(value);
+                    return `${readableKey}: ${formattedValue}`;
+                })
+                .join(' | ');
+            metricsHtml = `<div class="alert-metrics">${metricsEntries}</div>`;
+        }
+
+        // Use global escapeHtml function for XSS protection
+        const title = escapeHtml(alert.title || 'Alert');
+        const message = escapeHtml(alert.message || '');
+        const recommendation = alert.recommendation ? `<p class="alert-recommendation"><strong>Recommendation:</strong> ${escapeHtml(alert.recommendation)}</p>` : '';
+
+        return `
+            <div class="alert-card ${severityClass}" data-alert-id="${alert.id}">
+                <div class="alert-header">
+                    <span class="alert-badge">${severityIcon}</span>
+                    <h3 class="alert-title">${title}</h3>
+                    <span class="alert-date">${formattedDate}</span>
+                </div>
+                <div class="alert-body">
+                    <p class="alert-message">${message}</p>
+                    ${metricsHtml}
+                    ${recommendation}
+                </div>
+                <div class="alert-actions">
+                    <button class="alert-acknowledge-btn" onclick="acknowledgeAlert(${alert.id})">
+                        Acknowledge
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Acknowledge an alert
+     * @param {number} alertId - Alert ID
+     */
+    window.acknowledgeAlert = async function(alertId) {
+        try {
+            const response = await fetchWithTimeout(`/api/alerts/${alertId}/acknowledge`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept-Language': getAcceptLanguageHeader(),
+                },
+            }, 10000);
+
+            if (!response.ok) {
+                throw new Error(`Failed to acknowledge alert: ${response.status}`);
+            }
+
+            // Show success toast
+            showToast('Alert acknowledged', 'success');
+
+            // Reload alerts to update UI
+            await loadAlerts();
+        } catch (error) {
+            logger.error('Error acknowledging alert:', error);
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            showToast(`Failed to acknowledge alert: ${message}`, 'error');
+        }
+    };
 });
