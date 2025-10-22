@@ -488,14 +488,33 @@ class AlertDetector:
 
         severity = "critical" if max(severity_scores, default=0) == 2 else "warning"
 
-        # Build message
-        messages = config.get("messages", {}).get(severity, {})
+        # Determine message context based on ACWR pattern
+        comeback_threshold = config.get("acwr", {}).get("comeback_threshold", 0.8)
+        message_key = severity  # default fallback
+
+        if acwr is not None:
+            # Context-aware message selection
+            if acwr < comeback_threshold:
+                # Comeback injury pattern: low ACWR + spike = too much too soon
+                message_key = f"comeback_{severity}"
+            elif acwr >= acwr_thresholds.get("warning", 1.3):
+                # Overtraining injury pattern: high ACWR + spike = chronic overload
+                message_key = f"overtraining_{severity}"
+            # else: normal ACWR (0.8-1.3) uses generic fallback messages
+
+        # Build context-aware message
+        messages = config.get("messages", {}).get(message_key, config.get("messages", {}).get(severity, {}))
         title = messages.get("title", f"Injury Risk {severity.title()}")
         recommendation = messages.get("recommendation", "Reduce training volume.")
 
         load_info = "; ".join(indicators)
         message_template = messages.get("message", "Training load concerns: {load_info}")
-        message = message_template.format(load_info=load_info)
+
+        # Format message with context (include ACWR if available)
+        if acwr is not None:
+            message = message_template.format(load_info=load_info, acwr=acwr)
+        else:
+            message = message_template.format(load_info=load_info)
 
         return {
             "alert_type": "injury",

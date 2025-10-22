@@ -285,6 +285,56 @@ class DataProcessor:
             "consecutive_training_days": consecutive_days,
         }
 
+    def calculate_weekly_load_increase(self, target_date: date) -> float | None:
+        """
+        Calculate week-over-week training load increase percentage.
+
+        Args:
+            target_date: Date to calculate from
+
+        Returns:
+            Percentage increase (positive) or decrease (negative), or None if insufficient data
+        """
+        # Get last week's load (target_date - 6 to target_date)
+        last_week_start = target_date - timedelta(days=6)
+        last_week_end = target_date
+
+        # Get previous week's load (target_date - 13 to target_date - 7)
+        prev_week_start = target_date - timedelta(days=13)
+        prev_week_end = target_date - timedelta(days=7)
+
+        # Fetch activities for both weeks
+        activities = (
+            self.session.query(Activity)
+            .filter(Activity.date >= prev_week_start)
+            .filter(Activity.date <= last_week_end)
+            .all()
+        )
+
+        last_week_load = 0.0
+        prev_week_load = 0.0
+
+        for activity in activities:
+            # Calculate load (use training_load or estimate from training effect)
+            if activity.training_load:
+                load = float(activity.training_load)
+            elif activity.aerobic_training_effect:
+                load = float(activity.aerobic_training_effect) * 10
+            else:
+                continue
+
+            if last_week_start <= activity.date <= last_week_end:
+                last_week_load += load
+            elif prev_week_start <= activity.date <= prev_week_end:
+                prev_week_load += load
+
+        # Calculate percentage increase
+        if prev_week_load == 0:
+            return None
+
+        increase_pct = ((last_week_load - prev_week_load) / prev_week_load) * 100
+        return round(increase_pct, 1)
+
     def get_all_baselines(self, target_date: date) -> dict[str, Any]:
         """Get all baselines and metrics for AI analysis."""
         return {
@@ -293,4 +343,5 @@ class DataProcessor:
             "sleep": self.get_sleep_baseline(target_date),
             "acwr": self.calculate_acwr(target_date),
             "training_trends": self.get_training_trends(target_date),
+            "weekly_load_increase_pct": self.calculate_weekly_load_increase(target_date),
         }
