@@ -511,9 +511,13 @@ class AlertDetector:
         message_template = messages.get("message", "Training load concerns: {load_info}")
 
         # Format message with context (include ACWR if available)
-        if acwr is not None:
-            message = message_template.format(load_info=load_info, acwr=acwr)
-        else:
+        try:
+            if acwr is not None:
+                message = message_template.format(load_info=load_info, acwr=acwr)
+            else:
+                message = message_template.format(load_info=load_info)
+        except KeyError:
+            # Fallback if template doesn't have all placeholders
             message = message_template.format(load_info=load_info)
 
         return {

@@ -305,7 +305,7 @@ class DataProcessor:
 
         # Fetch activities for both weeks
         activities = (
-            self.session.query(Activity)
+            self.db.query(Activity)
             .filter(Activity.date >= prev_week_start)
             .filter(Activity.date <= last_week_end)
             .all()
