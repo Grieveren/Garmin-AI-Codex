@@ -432,11 +432,6 @@ class AIAnalyzer:
         except Exception:
             respiration = {}
 
-        try:
-            hydration = garmin._client.get_hydration_data(date_str)
-        except Exception:
-            hydration = {}
-
         # Fetch last 7 days of activities
         activities = []
         try:
@@ -477,7 +472,6 @@ class AIAnalyzer:
             "training_status": training_status,
             "spo2": spo2,
             "respiration": respiration,
-            "hydration": hydration,
             "recent_activities": activities[:7],  # Last 7 days
             "recent_workout_analysis": recent_workout_analysis,
         }
@@ -1562,7 +1556,6 @@ class AIAnalyzer:
 
         extended_signals_for_prompt = self._build_extended_signals(
             training_status_data,
-            data.get("hydration", {}),
             training_readiness_data,
         )
         recovery_time_info = self._format_recovery_for_prompt(
@@ -1570,9 +1563,6 @@ class AIAnalyzer:
         )
         load_focus_info = self._format_load_focus_for_prompt(
             extended_signals_for_prompt.get("load_focus")
-        )
-        hydration_info = self._format_hydration_for_prompt(
-            extended_signals_for_prompt.get("hydration")
         )
         acclimation_info = self._format_acclimation_for_prompt(
             extended_signals_for_prompt.get("acclimation")
@@ -1709,7 +1699,6 @@ class AIAnalyzer:
             recovery_time_info=recovery_time_info,
             alerts_info=alerts_info,
             load_focus_info=load_focus_info,
-            hydration_info=hydration_info,
             acclimation_info=acclimation_info,
             hrv_drop_threshold=thresholds["hrv_drop_pct"],
             resting_hr_elevated_threshold=thresholds["resting_hr_elevated_bpm"],
@@ -1773,7 +1762,6 @@ class AIAnalyzer:
     def _build_extended_signals(
         self,
         training_status: dict[str, Any] | list | None,
-        hydration: dict[str, Any] | None,
         training_readiness: Any,
     ) -> dict[str, Any]:
         signals: dict[str, Any] = {}
@@ -1789,10 +1777,6 @@ class AIAnalyzer:
         acclimation = self._parse_acclimation(training_status)
         if acclimation:
             signals["acclimation"] = acclimation
-
-        hydration_summary = self._parse_hydration(hydration)
-        if hydration_summary:
-            signals["hydration"] = hydration_summary
 
         return signals
 
@@ -2009,39 +1993,6 @@ class AIAnalyzer:
 
         return None
 
-    def _parse_hydration(self, hydration: Any) -> dict[str, Any] | None:
-        if not isinstance(hydration, dict):
-            return None
-
-        summary = hydration.get("summary")
-        if not isinstance(summary, dict):
-            summary = hydration
-
-        intake = None
-        goal = None
-        sweat = None
-
-        for key, value in summary.items():
-            if not isinstance(value, (int, float)):
-                continue
-            key_lower = key.lower()
-            if "goal" in key_lower and goal is None:
-                goal = float(value)
-            elif any(term in key_lower for term in ("consumed", "intake", "hydration")) and "goal" not in key_lower:
-                if intake is None:
-                    intake = float(value)
-            elif "sweat" in key_lower and sweat is None:
-                sweat = float(value)
-
-        if intake is None and goal is None and sweat is None:
-            return None
-
-        return {
-            "intake_ml": intake,
-            "goal_ml": goal,
-            "sweat_loss_ml": sweat,
-        }
-
     def _format_recovery_for_prompt(self, recovery: dict[str, Any] | None) -> str:
         if not recovery:
             return "Not available"
@@ -2084,28 +2035,6 @@ class AIAnalyzer:
             fragments.append(fragment)
 
         return "; ".join(fragments) if fragments else "Not available"
-
-    def _format_hydration_for_prompt(self, hydration: dict[str, Any] | None) -> str:
-        if not hydration:
-            return "Not available"
-
-        intake = hydration.get("intake_ml")
-        goal = hydration.get("goal_ml")
-        sweat = hydration.get("sweat_loss_ml")
-
-        parts: list[str] = []
-        if isinstance(intake, (int, float)):
-            intake_l = intake / 1000
-            if isinstance(goal, (int, float)) and goal > 0:
-                goal_l = goal / 1000
-                parts.append(f"{intake_l:.1f}L of {goal_l:.1f}L goal")
-            else:
-                parts.append(f"{intake_l:.1f}L consumed")
-
-        if isinstance(sweat, (int, float)) and sweat > 0:
-            parts.append(f"sweat loss {sweat / 1000:.1f}L")
-
-        return "; ".join(parts) if parts else "Not available"
 
     def _format_acclimation_for_prompt(self, acclimation: dict[str, Any] | None) -> str:
         if not acclimation:

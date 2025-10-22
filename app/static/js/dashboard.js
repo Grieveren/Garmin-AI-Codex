@@ -70,10 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'extended.recovery_time': 'Recovery Time',
             'extended.recovery_time_value': '{hours} h remaining',
             'extended.recovery_time_ready': 'Ready for high intensity',
-            'extended.hydration': 'Hydration',
-            'extended.hydration_value': '{intake} L of {goal} L goal',
-            'extended.hydration_value_no_goal': '{intake} L consumed',
-            'extended.hydration_note': 'Estimated sweat loss {sweat} L',
             'extended.load_focus': 'Load Focus',
             'extended.load_focus_entry': '{label}: {load}',
             'extended.load_focus_entry_with_range': '{label}: {load} (optimal {low}-{high})',
@@ -174,10 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'extended.recovery_time': 'Erholungszeit',
             'extended.recovery_time_value': '{hours} Std. verbleibend',
             'extended.recovery_time_ready': 'Bereit für intensive Einheiten',
-            'extended.hydration': 'Hydration',
-            'extended.hydration_value': '{intake} L von {goal} L Ziel',
-            'extended.hydration_value_no_goal': '{intake} L getrunken',
-            'extended.hydration_note': 'Geschätzter Schweißverlust {sweat} L',
             'extended.load_focus': 'Belastungsfokus',
             'extended.load_focus_entry': '{label}: {load}',
             'extended.load_focus_entry_with_range': '{label}: {load} (optimal {low}-{high})',
@@ -1070,26 +1062,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? t('extended.recovery_time_ready')
                 : t('extended.recovery_time_value', { hours: formatted });
             badgeFragments.push({ label: t('extended.recovery_time'), value: label });
-        }
-
-        const hydration = signals.hydration || {};
-        if (typeof hydration.intake_ml === 'number') {
-            const intakeLitres = Math.round((hydration.intake_ml / 1000) * 10) / 10;
-            const intakeText = intakeLitres.toFixed(intakeLitres % 1 === 0 ? 0 : 1);
-            let value;
-            if (typeof hydration.goal_ml === 'number' && hydration.goal_ml > 0) {
-                const goalLitres = Math.round((hydration.goal_ml / 1000) * 10) / 10;
-                const goalText = goalLitres.toFixed(goalLitres % 1 === 0 ? 0 : 1);
-                value = t('extended.hydration_value', { intake: intakeText, goal: goalText });
-            } else {
-                value = t('extended.hydration_value_no_goal', { intake: intakeText });
-            }
-            badgeFragments.push({ label: t('extended.hydration'), value });
-        }
-        if (typeof hydration.sweat_loss_ml === 'number' && hydration.sweat_loss_ml > 0) {
-            const sweatLitres = Math.round((hydration.sweat_loss_ml / 1000) * 10) / 10;
-            const sweatText = sweatLitres.toFixed(sweatLitres % 1 === 0 ? 0 : 1);
-            badgeFragments.push({ label: t('extended.hydration'), value: t('extended.hydration_note', { sweat: sweatText }) });
         }
 
         const focusEntries = Array.isArray(signals.load_focus) ? signals.load_focus : [];

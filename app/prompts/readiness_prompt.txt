@@ -29,7 +29,6 @@ ENHANCED RECOVERY METRICS:
 ADDITIONAL SIGNALS:
 - Recovery time remaining: {recovery_time_info}
 - Load focus balance: {load_focus_info}
-- Hydration status: {hydration_info}
 - Heat/Altitude acclimation: {acclimation_info}
 
 🚨 ACTIVE TRAINING ALERTS:
@@ -120,6 +119,21 @@ IMPORTANT GUIDELINES:
 - High stress or low body battery → scale back intensity
 - **ACWR >{acwr_moderate_threshold} = approaching injury risk; >{acwr_high_threshold} = HIGH RISK** - recommend reduced volume/intensity
 - {no_rest_days_threshold}+ consecutive training days without rest = overtraining risk - mandate rest day
+
+**PERFORMANCE ANALYSIS REQUIREMENTS (MANDATORY):**
+- **Performance Condition** is a PRIMARY factor in workout recommendations:
+  * **Fatigued** (HR higher OR pace slower than baseline) → downgrade recommendation by one level (high→moderate, moderate→easy, easy→rest)
+  * **Normal** → proceed with planned recommendation
+  * **Strong** (HR lower OR pace faster) → green light for quality training
+
+- **ALWAYS include** most recent workout performance in key_factors when available
+
+- **MUST add to red_flags** when:
+  * Performance condition = "Fatigued" AND within 24 hours of workout
+  * Performance trend = "Declining" over recent workouts
+  * Pace/HR deviation shows >10% performance drop from baseline
+
+- **Integrate into ai_reasoning:** Explain how performance condition influenced the workout recommendation
 
 **PHASE 1 ENHANCED METRICS - HOW TO USE THEM:**
 - **Garmin Training Readiness Score**: Primary indicator of readiness
