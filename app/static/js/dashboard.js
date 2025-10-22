@@ -434,10 +434,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    applyStoredTheme();
+    // Theme helper function for language changes (button click handled by base.js)
+    function updateThemeToggleLabel(isDark) {
+        if (!themeToggle) return;
+
+        if (isDark) {
+            themeToggle.textContent = '☀️ Light';
+            themeToggle.setAttribute('aria-label', 'Switch to light mode');
+        } else {
+            themeToggle.textContent = '🌙 Dark';
+            themeToggle.setAttribute('aria-label', 'Switch to dark mode');
+        }
+    }
+
+    // Let base.js handle theme initialization
     setLanguage(currentLanguage, { save: false, revalidate: false });
 
-    themeToggle?.addEventListener('click', toggleTheme);
     languageToggle?.addEventListener('click', () => {
         const next = currentLanguage === 'en' ? 'de' : 'en';
         setLanguage(next, { revalidate: true });
@@ -1523,19 +1535,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function applyStoredTheme() {
-        const stored = localStorage.getItem(THEME_KEY);
-        const isDark = stored === 'dark';
-        document.body.classList.toggle('dark-theme', isDark);
-        updateThemeToggleLabel(isDark);
-    }
-
-    function toggleTheme() {
-        const isDark = document.body.classList.toggle('dark-theme');
-        localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
-        updateThemeToggleLabel(isDark);
-    }
-
     function setLanguage(lang, { save = true, revalidate = false } = {}) {
         if (!translations[lang]) {
             lang = FALLBACK_LANGUAGE;
@@ -1594,13 +1593,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (refreshBtn) {
             refreshBtn.textContent = t('button.refresh');
         }
-    }
-
-    function updateThemeToggleLabel(isDark) {
-        if (!themeToggle) {
-            return;
-        }
-        themeToggle.textContent = isDark ? t('theme.light') : t('theme.dark');
     }
 
     function updateDateDisplay() {
