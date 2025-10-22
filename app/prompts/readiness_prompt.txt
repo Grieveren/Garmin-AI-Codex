@@ -31,6 +31,12 @@ ADDITIONAL SIGNALS:
 - Load focus balance: {load_focus_info}
 - Hydration status: {hydration_info}
 - Heat/Altitude acclimation: {acclimation_info}
+
+🚨 ACTIVE TRAINING ALERTS:
+{alerts_info}
+
+**CRITICAL:** If there are CRITICAL alerts above, your recommendation MUST align with the alert severity. Do not recommend high-intensity or moderate workouts when a critical alert mandates rest or easy training.
+
 {historical_context}
 RECENT TRAINING HISTORY (Last 7 days):
 {activity_summary}
@@ -119,9 +125,10 @@ IMPORTANT GUIDELINES:
 - **Garmin Training Readiness Score**: Primary indicator of readiness
   * <{readiness_critical} = CRITICAL - mandate rest day regardless of other metrics
   * {readiness_critical}-{readiness_poor} = POOR - strong consideration for rest or very easy day
-  * {readiness_poor}-{readiness_low} = LOW - recommend easy/recovery day
-  * {readiness_low}-{readiness_moderate} = MODERATE - moderate training appropriate
-  * >={readiness_moderate} = GOOD/EXCELLENT - green light for quality work
+  * {readiness_poor}-{readiness_moderate_low} = MODERATE-LOW - recommend easy/recovery day
+  * {readiness_moderate_low}-{readiness_moderate} = MODERATE - moderate training appropriate
+  * {readiness_moderate}-{readiness_good} = GOOD - ready for quality work
+  * >={readiness_good} = EXCELLENT - green light for high-intensity training
   * **Always mention this score in your reasoning** - it's Garmin's AI assessment
 
 - **Training Status**

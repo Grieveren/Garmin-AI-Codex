@@ -239,7 +239,20 @@ class AIAnalyzer:
         baselines = self._calculate_baselines(data)
         historical_baselines = self._get_historical_baselines(target_date)
 
-        # Build comprehensive prompt with HR zones
+        # Detect training alerts BEFORE building prompt (so AI can respect them)
+        detected_alerts = []
+        try:
+            with SessionLocal() as session:
+                detector = AlertDetector()
+                # Pass historical_baselines directly - AlertDetector expects flat structure
+                detected_alerts = detector.detect_alerts(target_date, session, context=historical_baselines)
+                if detected_alerts:
+                    logger.info("Detected %d alert(s) for %s BEFORE AI analysis", len(detected_alerts), target_date.isoformat())
+        except (ValueError, KeyError, TypeError) as e:
+            # Don't fail the entire analysis if alert detection fails
+            logger.warning("Alert detection failed: %s", str(e), exc_info=True)
+
+        # Build comprehensive prompt with HR zones and alerts
         language, prompt, system_prompt, extended_signals = self._build_prompt(
             target_date,
             data,
@@ -247,6 +260,7 @@ class AIAnalyzer:
             historical_baselines,
             hr_zones=hr_zones,
             locale=locale,
+            alerts=detected_alerts,
         )
 
         # Get AI analysis
@@ -352,18 +366,9 @@ class AIAnalyzer:
 
         result["generated_at"] = datetime.utcnow().isoformat() + "Z"
 
-        # Detect training alerts (overtraining, illness, injury)
-        try:
-            with SessionLocal() as session:
-                detector = AlertDetector()
-                # Pass historical_baselines directly - AlertDetector expects flat structure
-                alerts = detector.detect_alerts(target_date, session, context=historical_baselines)
-                if alerts:
-                    result["alerts"] = alerts
-                    logger.info("Detected %d alert(s) for %s", len(alerts), target_date.isoformat())
-        except (ValueError, KeyError, TypeError) as e:
-            # Don't fail the entire analysis if alert detection fails
-            logger.warning("Alert detection failed: %s", str(e), exc_info=True)
+        # Add detected alerts to result (already detected before prompt building)
+        if detected_alerts:
+            result["alerts"] = detected_alerts
 
         # Cache the response with TTL
         self._set_cached_response(cache_key, result)
@@ -1435,6 +1440,7 @@ class AIAnalyzer:
         historical_baselines: dict[str, Any] | None,
         hr_zones: dict[str, dict[str, int | str]] | None = None,
         locale: str | None = None,
+        alerts: list[dict[str, Any]] | None = None,
     ) -> tuple[str, str, str | None, dict[str, Any]]:
         """Build comprehensive prompt for Claude AI."""
 
@@ -1651,6 +1657,7 @@ class AIAnalyzer:
                 acwr_ratio=acwr.get("acwr", "N/A"),
                 acwr_status=acwr.get("status", "unknown"),
                 acwr_risk=acwr.get("injury_risk", "unknown").upper(),
+                weekly_load_increase=historical_baselines.get("weekly_load_increase_pct", "N/A"),
                 acwr_warning=acwr_warning,
                 trends_total=trends.get("total_activities", 0),
                 trends_distance=trends.get("total_distance_km", 0),
@@ -1663,6 +1670,23 @@ class AIAnalyzer:
                 acwr_high_threshold=thresholds["acwr_high"],
                 no_rest_days_threshold=thresholds["no_rest_days"],
             )
+
+        # Format active alerts for prompt
+        alerts_info = "No active training alerts"
+        if alerts:
+            alert_lines = []
+            for alert in alerts:
+                severity = alert.get("severity", "warning").upper()
+                alert_type = alert.get("alert_type", "unknown")
+                message = alert.get("message", "")
+                triggers = alert.get("triggers", [])
+
+                alert_text = f"🚨 [{severity}] {alert_type.replace('_', ' ').title()}: {message}"
+                if triggers:
+                    alert_text += f"\n   Triggers: {', '.join(triggers)}"
+                alert_lines.append(alert_text)
+
+            alerts_info = "\n".join(alert_lines)
 
         prompt = template.format(
             today=target_date.isoformat(),
@@ -1683,6 +1707,7 @@ class AIAnalyzer:
             activity_summary=activity_summary,
             recent_workout_details=recent_workout_details,
             recovery_time_info=recovery_time_info,
+            alerts_info=alerts_info,
             load_focus_info=load_focus_info,
             hydration_info=hydration_info,
             acclimation_info=acclimation_info,
@@ -1694,7 +1719,8 @@ class AIAnalyzer:
             no_rest_days_threshold=thresholds["no_rest_days"],
             readiness_critical=readiness_thresholds["critical"],
             readiness_poor=readiness_thresholds["poor"],
-            readiness_low=readiness_thresholds["low"],
+            readiness_moderate_low=readiness_thresholds["moderate_low"],
+            readiness_good=readiness_thresholds.get("good", 90),
             readiness_moderate=readiness_thresholds["moderate"],
         )
 

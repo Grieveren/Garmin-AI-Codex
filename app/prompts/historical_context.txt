@@ -26,6 +26,7 @@ HISTORICAL BASELINES (30-day analysis):
   * ACWR Ratio: {acwr_ratio}
   * Status: {acwr_status}
   * Injury risk: {acwr_risk}
+  * Weekly load increase: {weekly_load_increase}% (week-over-week change)
   * ⚠️ WARNING: {acwr_warning}
 
 - Training Trends (30 days):
