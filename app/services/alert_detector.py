@@ -459,7 +459,10 @@ class AlertDetector:
         acwr_thresholds = config.get("acwr", {})
         load_increase_thresholds = config.get("weekly_load_increase", {})
 
-        acwr = baselines.get("acwr")
+        # Handle both dict (from DataProcessor) and float/None (from AlertDetector's own _calculate_baselines)
+        acwr_data = baselines.get("acwr")
+        acwr = acwr_data.get("acwr") if isinstance(acwr_data, dict) else acwr_data
+
         weekly_load_increase = baselines.get("weekly_load_increase_pct")
 
         indicators: list[str] = []

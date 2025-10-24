@@ -45,14 +45,15 @@ MOST RECENT WORKOUT PERFORMANCE (Last 72 hours):
 
 **RECENT WORKOUT PERFORMANCE INTERPRETATION:**
 When analyzing the most recent workout performance:
-- **PERFORMANCE CONDITION** indicates acute recovery state:
-  * **Strong**: HR lower OR pace faster than baseline → excellent recovery, ready for quality work
-  * **Normal**: Performance within ±5% of baseline → adequate recovery, proceed with planned training
-  * **Fatigued**: HR higher OR pace slower than baseline → incomplete recovery, reduce intensity or rest
-- **TREND** reveals medium-term performance trajectory:
-  * **Improving**: Consistent gains in performance → training is working, maintain current approach
-  * **Stable**: Performance holding steady → appropriate for maintenance phases
-  * **Declining**: Performance dropping over time → possible overtraining, fatigue accumulation, or illness
+- **PERFORMANCE CONDITION** indicates acute recovery state based on EFFICIENCY (pace relative to heart rate):
+  * **Strong**: IMPROVED efficiency (faster pace per heartbeat) → running faster at similar/lower HR than baseline, excellent recovery, ready for quality work
+  * **Normal**: Efficiency within ±5% of baseline → adequate recovery, proceed with planned training
+  * **Fatigued**: REDUCED efficiency (slower pace per heartbeat) → running slower at similar/higher HR than baseline, incomplete recovery, reduce intensity or rest
+  * IMPORTANT: A faster pace alone does NOT indicate better performance - you must consider the HR cost. Running 4:30/km at 165bpm is NOT better performance than 5:00/km at 150bpm.
+- **TREND** reveals medium-term efficiency trajectory:
+  * **Improving**: Consistent gains in efficiency (pace/HR ratio improving) → training adaptations occurring, fitness improving
+  * **Stable**: Efficiency holding steady → appropriate for maintenance phases
+  * **Declining**: Efficiency dropping over time (higher HR for same pace OR slower pace at same HR) → possible overtraining, fatigue accumulation, or illness
 - **HOURS SINCE WORKOUT** affects recovery needs:
   * <24 hours: Recent session, muscles still recovering
   * 24-48 hours: Critical recovery window for hard efforts

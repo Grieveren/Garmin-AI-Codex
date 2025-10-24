@@ -596,6 +596,9 @@ class AIAnalyzer:
     ) -> dict[str, Any]:
         """Compare recent workout to similar workouts from last 14 days.
 
+        Uses EFFICIENCY-BASED analysis (pace relative to heart rate) when both metrics available.
+        This provides accurate performance assessment rather than treating faster pace as automatically better.
+
         Args:
             recent_activity: Result from _analyze_most_recent_workout()
             all_activities: Full list of recent activities from Garmin
@@ -609,6 +612,10 @@ class AIAnalyzer:
                 "hr_deviation_bpm": float | None,
                 "pace_deviation_pct": float | None,
                 "trend": str ("improving" | "stable" | "declining" | None),
+                    - "improving": Better efficiency (faster pace per heartbeat)
+                    - "declining": Worse efficiency (slower pace per heartbeat)
+                    - "stable": Efficiency within ±5% threshold
+                    - None: Insufficient data for comparison
                 "similar_workout_count": int
             }
 
@@ -704,20 +711,35 @@ class AIAnalyzer:
 
         pace_deviation_pct = None
         if avg_pace_baseline and recent_activity["avg_pace"]:
-            # Negative deviation = faster pace (better performance)
+            # Calculate pace deviation (negative = faster pace)
             pace_deviation_pct = ((recent_activity["avg_pace"] - avg_pace_baseline) / avg_pace_baseline) * 100
 
-        # Detect trend (improving/stable/declining)
+        # Detect trend using EFFICIENCY (pace relative to HR) when both available
         trend = None
-        if hr_deviation is not None or pace_deviation_pct is not None:
-            # Improving: HR lower OR pace faster
-            # Declining: HR higher OR pace slower
-            # Stable: within ±5%
-            STABLE_THRESHOLD = 5.0
+        STABLE_THRESHOLD = 5.0
 
+        # BEST CASE: Calculate efficiency trend when both HR and pace available
+        if (avg_hr_baseline and recent_activity["avg_hr"] and
+            avg_pace_baseline and recent_activity["avg_pace"]):
+            # Efficiency = pace / HR (lower = better)
+            baseline_efficiency = avg_pace_baseline / avg_hr_baseline
+            current_efficiency = recent_activity["avg_pace"] / recent_activity["avg_hr"]
+            efficiency_change_pct = ((current_efficiency - baseline_efficiency) / baseline_efficiency) * 100
+
+            # Negative % = improved efficiency (better performance)
+            # Positive % = reduced efficiency (worse performance)
+            if abs(efficiency_change_pct) > STABLE_THRESHOLD:
+                trend = "improving" if efficiency_change_pct < 0 else "declining"
+            else:
+                trend = "stable"
+
+        # FALLBACK: Use HR or pace deviation alone (less reliable)
+        elif hr_deviation is not None or pace_deviation_pct is not None:
+            # Prefer HR trend if available (more reliable than pace alone)
             if hr_deviation is not None and abs(hr_deviation) > STABLE_THRESHOLD:
                 trend = "improving" if hr_deviation < 0 else "declining"
             elif pace_deviation_pct is not None and abs(pace_deviation_pct) > STABLE_THRESHOLD:
+                # Use pace with caution (doesn't account for HR cost)
                 trend = "improving" if pace_deviation_pct < 0 else "declining"
             else:
                 trend = "stable"
@@ -735,7 +757,12 @@ class AIAnalyzer:
     def _calculate_performance_condition(
         self, recent_workout: dict[str, Any], comparison: dict[str, Any]
     ) -> str:
-        """Calculate performance condition based on HR and pace deviations.
+        """Calculate performance condition based on efficiency (pace relative to heart rate).
+
+        Performance is measured by EFFICIENCY, not just pace or HR alone.
+        Better performance = running faster at same/lower HR OR same pace at lower HR.
+
+        Efficiency metric = pace / HR (lower is better, since lower pace min/km = faster)
 
         Args:
             recent_workout: Result from _analyze_most_recent_workout()
@@ -743,14 +770,45 @@ class AIAnalyzer:
 
         Returns:
             Performance condition verdict:
-            - "Strong": HR lower OR pace faster (beyond threshold)
-            - "Normal": Within threshold of baseline
-            - "Fatigued": HR higher OR pace slower (beyond threshold)
+            - "Strong": Improved efficiency (faster pace per heartbeat) beyond threshold
+            - "Normal": Efficiency within threshold of baseline
+            - "Fatigued": Reduced efficiency (slower pace per heartbeat) beyond threshold
 
         Configuration:
-            hr_deviation_threshold: Loaded from config (default: 5 bpm)
             pace_deviation_threshold_pct: Loaded from config (default: 5%)
+            Used as threshold for efficiency deviation
+
+        Fallback:
+            If only HR or only pace available (not both), uses simple deviation logic
+            but this is not a true performance assessment.
         """
+        # Get recent workout metrics
+        recent_hr = recent_workout.get("avg_hr")
+        recent_pace = recent_workout.get("avg_pace")
+
+        # Get baseline metrics from comparison
+        baseline_hr = comparison.get("avg_hr_baseline")
+        baseline_pace = comparison.get("avg_pace_baseline")
+
+        # BEST CASE: Both HR and pace available - calculate efficiency
+        if recent_hr and recent_pace and baseline_hr and baseline_pace:
+            # Efficiency = pace / HR (lower = better, since lower pace min/km = faster running)
+            baseline_efficiency = baseline_pace / baseline_hr
+            current_efficiency = recent_pace / recent_hr
+
+            # Calculate efficiency change percentage
+            efficiency_change_pct = ((current_efficiency - baseline_efficiency) / baseline_efficiency) * 100
+
+            # Negative % = improved efficiency (lower pace per heartbeat = better performance)
+            # Positive % = reduced efficiency (higher pace per heartbeat = worse performance)
+            if efficiency_change_pct < -self.pace_deviation_threshold_pct:
+                return "Strong"
+            elif efficiency_change_pct > self.pace_deviation_threshold_pct:
+                return "Fatigued"
+            else:
+                return "Normal"
+
+        # FALLBACK: Only one metric available - use simple deviation (not true performance assessment)
         hr_deviation = comparison.get("hr_deviation_bpm")
         pace_deviation_pct = comparison.get("pace_deviation_pct")
 
@@ -758,19 +816,22 @@ class AIAnalyzer:
         if hr_deviation is None and pace_deviation_pct is None:
             return "Normal"
 
-        # Check for strong performance (HR lower OR pace faster)
-        if hr_deviation is not None and hr_deviation < -self.hr_deviation_threshold:
-            return "Strong"
-        if pace_deviation_pct is not None and pace_deviation_pct < -self.pace_deviation_threshold_pct:
-            return "Strong"
+        # Fallback: Check HR deviation only (not ideal but better than nothing)
+        if hr_deviation is not None:
+            if hr_deviation < -self.hr_deviation_threshold:
+                return "Strong"  # Lower HR (caveat: without pace context, not full picture)
+            elif hr_deviation > self.hr_deviation_threshold:
+                return "Fatigued"  # Higher HR (caveat: without pace context, not full picture)
 
-        # Check for fatigue (HR higher OR pace slower)
-        if hr_deviation is not None and hr_deviation > self.hr_deviation_threshold:
-            return "Fatigued"
-        if pace_deviation_pct is not None and pace_deviation_pct > self.pace_deviation_threshold_pct:
-            return "Fatigued"
+        # Fallback: Check pace deviation only (LEAST reliable - pace alone doesn't indicate performance)
+        # Only use this as last resort
+        if pace_deviation_pct is not None:
+            # Use conservative threshold since pace alone is unreliable
+            if pace_deviation_pct < -(self.pace_deviation_threshold_pct * 2):
+                return "Strong"  # Significantly faster (but could be at higher HR cost)
+            elif pace_deviation_pct > (self.pace_deviation_threshold_pct * 2):
+                return "Fatigued"  # Significantly slower
 
-        # Within threshold = Normal
         return "Normal"
 
     def _fetch_activity_detail_metrics(self, activity_id: int) -> dict[str, Any] | None:
